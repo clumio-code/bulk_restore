@@ -1,0 +1,74 @@
+{
+  "bear": "",
+  "debug": 99,
+  "RestoreGroups": [
+    {
+      "ResourceType": "EC2",
+      "source_account": "111222333444",
+      "source_region": "us-east-1",
+      "search_direction": "after",
+      "search_tag_key": "Name",
+      "search_tag_value": "test22",
+      "start_search_day_offset": 0,
+      "end_search_day_offset": 10,
+      "target_account": "111222333444",
+      "target_region": "us-east-1",
+      "target_az": "us-east-1a",
+      "target_iam_instance_profile_name": "",
+      "target_key_pair_name": "zxxz-111222333444-ec2-key",
+      "target_security_group_native_ids": [
+        "sg-0546facc66de12222"
+      ],
+      "target_subnet_native_id": "subnet-0340ef13d020c1ac9",
+      "target_vpc_native_id": "vpc-0a4cde925ca123c1a",
+      "target_kms_key_native_id": ""
+    },
+    {
+      "ResourceType": "EBS",
+      "source_account": "222333444555",
+      "source_region": "us-east-1",
+      "search_direction": "after",
+      "search_tag_key": "Dev",
+      "search_tag_value": "Yes",
+      "start_search_day_offset": 0,
+      "end_search_day_offset": 10,
+      "target_account": "222333444555",
+      "target_region": "us-east-2",
+      "target_az": "us-east-2b",
+      "target_iops": "",
+      "target_volume_type": "",
+      "target_kms_key_native_id": "70720655-f8e5-4a73-9137-d6dc8a66543"
+    },
+    {
+      "ResourceType": "DynamoDB",
+      "source_account": "111222333444",
+      "source_region": "us-east-1",
+      "search_direction": "after",
+      "search_tag_key": "",
+      "search_tag_value": "",
+      "start_search_day_offset": 0,
+      "end_search_day_offset": 10,
+      "target_account": "222333444555",
+      "target_region": "us-east-1",
+      "change_set_name": "br5",
+      "target_kms_key_native_id": "18faa619-614e-11e9-bd69-f1ba63e776c4"
+    },
+    {
+      "ResourceType": "RDS",
+      "source_account": "333444555666",
+      "source_region": "us-east-2",
+      "search_direction": "after",
+      "search_tag_key": "",
+      "search_tag_value": "",
+      "start_search_day_offset": 0,
+      "end_search_day_offset": 10,
+      "target_account": "222333444555",
+      "target_region": "us-east-1",
+      "target_subnet_group_name": "subnetgroupdiscovery04252024",
+      "target_security_group_native_ids": [
+        "sg-0eea837afa883414a"
+      ],
+      "target_kms_key_native_id": "f1111ae-865c-47ce-867c-ba9617663e54"
+    }
+  ]
+}
