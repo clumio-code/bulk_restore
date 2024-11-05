@@ -61,6 +61,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     retrieve_task_api = RetrieveTask()
+    base_url = events.get('base_url', None)
+    if base_url:
+        retrieve_task_api.set_url_prefix(base_url)
     retrieve_task_api.set_token(bear)
     retrieve_task_api.set_debug(debug)
 

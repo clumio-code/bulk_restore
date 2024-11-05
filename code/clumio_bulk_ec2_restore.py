@@ -72,6 +72,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     ec2_restore_api = RestoreEC2()
+    base_url = events.get('base_url', None)
+    if base_url:
+        ec2_restore_api.set_url_prefix(base_url)
     ec2_restore_api.set_token(bear)
     ec2_restore_api.set_debug(debug)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))

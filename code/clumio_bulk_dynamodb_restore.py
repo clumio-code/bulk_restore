@@ -73,6 +73,9 @@ def lambda_handler(events, context):
             return {"status": 411, "msg": error_msg}
 
     ddn_restore_api = RestoreDDN()
+    base_url = events.get('base_url', None)
+    if base_url:
+        ddn_restore_api.set_url_prefix(base_url)
     ddn_restore_api.set_token(bear)
     ddn_restore_api.set_debug(99)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))

@@ -57,6 +57,9 @@ def lambda_handler(events, context):
 
     #Initiate List RDS Backups
     rds_backup_list_api = RDSBackupList()
+    base_url = events.get('base_url', None)
+    if base_url:
+        rds_backup_list_api.set_url_prefix(base_url)
     rds_backup_list_api.set_token(bear)
     rds_backup_list_api.set_debug(debug)
 

@@ -58,6 +58,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     ec2_backup_list_api = EC2BackupList()
+    base_url = events.get('base_url', None)
+    if base_url:
+        ec2_backup_list_api.set_url_prefix(base_url)
     ec2_backup_list_api.set_token(bear)
     ec2_backup_list_api.set_debug(debug)
 
