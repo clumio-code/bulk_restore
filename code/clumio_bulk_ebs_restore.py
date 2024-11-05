@@ -69,6 +69,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     ebs_restore_api = RestoreEBS()
+    base_url = events.get('base_url', None)
+    if base_url:
+        ebs_restore_api.set_url_prefix(base_url)
     ebs_restore_api.set_token(bear)
     ebs_restore_api.set_debug(debug)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))

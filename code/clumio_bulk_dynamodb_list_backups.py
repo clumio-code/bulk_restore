@@ -48,6 +48,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     ddn_backup_list_api = DynamoDBBackupList()
+    base_url = events.get('base_url', None)
+    if base_url:
+        ddn_backup_list_api.set_url_prefix(base_url)
     ddn_backup_list_api.set_token(bear)
     ddn_backup_list_api.set_debug(debug)
 

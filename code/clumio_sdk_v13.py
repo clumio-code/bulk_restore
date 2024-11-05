@@ -827,6 +827,11 @@ class API:
                 self.header = {"accept": self.accept_api, "content-type": "application/json", "authorization": bear}
             return self.header
 
+    def set_url_prefix(self, url_prefix):
+        self.url_full = self.url_full.replace(self.url_prefix, url_prefix)
+        self.url = self.url.replace(self.url_prefix, url_prefix)
+        self.url_prefix = url_prefix
+
     def set_url(self, suffix):
         # #print(f"hi in set {prefix}")
         if self.good:
@@ -2049,6 +2054,7 @@ class ListEC2Instance(API):
     def find_environment_id(self):
         # if search for both an AWS account id and an AWS region is set find and use a Clumio environment id filter
         env_id_api = EnvironmentId()
+        env_id_api.set_url_prefix(self.url_prefix)
         env_id_api.set_token(self.token)
         env_id_api.set_search_account_id(self.aws_account_id)
         env_id_api.set_search_region(self.aws_region)
@@ -3038,6 +3044,8 @@ class RestoreEC2(API):
     def set_target_environment_id(self, account, region):
         if self.set_aws_account_id(account) and self.set_aws_region(region):
             env_id_api = EnvironmentId()
+            env_id_api.set_url_prefix(self.url_prefix)
+            env_id_api.set_url_prefix(self.url_prefix)
             env_id_api.set_token(self.token)
             env_id_api.set_search_account_id(self.aws_account_id)
             env_id_api.set_search_region(self.aws_region)
@@ -4342,6 +4350,7 @@ class RestoreEBS(API):
     def set_target_environment_id(self, account, region):
         if self.set_aws_account_id(account) and self.set_aws_region(region):
             env_id_api = EnvironmentId()
+            env_id_api.set_url_prefix(self.url_prefix)
             env_id_api.set_token(self.token)
             env_id_api.set_debug(99)
             env_id_api.set_search_account_id(self.aws_account_id)
@@ -5357,6 +5366,7 @@ class RestoreDDN(API):
     def set_target_environment_id(self, account, region):
         if self.set_aws_account_id(account) and self.set_aws_region(region):
             env_id_api = EnvironmentId()
+            env_id_api.set_url_prefix(self.url_prefix)
             env_id_api.set_token(self.token)
             env_id_api.set_debug(99)
             env_id_api.set_search_account_id(self.aws_account_id)
@@ -6079,6 +6089,7 @@ class RestoreRDS(API):
     def set_target_environment_id(self, account, region):
         if self.set_aws_account_id(account) and self.set_aws_region(region):
             env_id_api = EnvironmentId()
+            env_id_api.set_url_prefix(self.url_prefix)
             env_id_api.set_token(self.token)
             env_id_api.set_search_account_id(self.aws_account_id)
             env_id_api.set_search_region(self.aws_region)

@@ -71,6 +71,9 @@ def lambda_handler(events, context):
 
     # Initiate API and configure
     rds_restore_api = RestoreRDS()
+    base_url = events.get('base_url', None)
+    if base_url:
+        rds_restore_api.set_url_prefix(base_url)
     rds_restore_api.set_token(bear)
     rds_restore_api.set_debug(debug)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))
@@ -86,7 +89,7 @@ def lambda_handler(events, context):
     #    {"key": "InstanceToScanStatus", "value": "enable"},
     #    {"key": "OrginalInstanceId", "value": source_instance_id},
     #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "value": run_token}
+    #    {"key": "ClumioTaskToken", "vquitalue": run_token}
     #]
     #rds_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
     # Set restore target information
@@ -95,9 +98,6 @@ def lambda_handler(events, context):
     rnd_string = ''.join(random.choices(string.ascii_letters, k=3))
     name_composite = f"{source_name}{target_rds_name}{rnd_string}"
 
-    rds_restore_api = RestoreRDS()
-    rds_restore_api.set_token(bear)
-    rds_restore_api.set_debug(debug)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))
     if debug > 40: print(
         f"source_name  {source_name} target_rds_name  {target_rds_name} name_composite  {name_composite}")
