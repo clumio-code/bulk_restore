@@ -13,6 +13,10 @@ Parameters:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
     Default: clumio_bulk_restore.zip
+  LayerZipObject:
+    Description: path to the layer zip file in LambdaCodeLocationBucket
+    Type: String
+    Default: clumio_bulk_restore_layer.zip
 Resources:
   ClumioToken:
     Type: 'AWS::SecretsManager::Secret'
@@ -191,6 +195,63 @@ Resources:
       Description: clumio_bulk_retrieve_ebs_restore_task
       TracingConfig:
         Mode: Active
+  ClumioSDKLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      CompatibleRuntimes:
+        - python3.12
+      Content:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LayerZipObject
+      LayerName: "clumio_bulk_layer"
+  ListPG:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_s3_list_backups
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_s3_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Layers:
+        - !Ref ClumioSDKLayer
+      Description: clumio_bulk_s3_list_backups
+      TracingConfig:
+        Mode: Active
+  RestorePG:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_s3_restore
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_s3_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Layers:
+        - !Ref ClumioSDKLayer
+      Description: clumio_bulk_s3_restore
+      TracingConfig:
+        Mode: Active
+  TaskPG:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_retrieve_s3_restore_task
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_retrieve_s3_restore_task.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Layers:
+        - !Ref ClumioSDKLayer
+      Description: clumio_bulk_retrieve_s3_restore_task
+      TracingConfig:
+        Mode: Active
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
@@ -213,9 +274,9 @@ Resources:
                   "ProcessorConfig": {
                     "Mode": "INLINE"
                   },
-                  "StartAt": "Chose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS",
+                  "StartAt": "Choose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS, ProtectionGroup",
                   "States": {
-                    "Chose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS": {
+                    "Choose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS, ProtectionGroup": {
                       "Type": "Choice",
                       "Choices": [
                         {
@@ -237,6 +298,11 @@ Resources:
                           "Variable": "$.ResourceType",
                           "StringEquals": "EBS",
                           "Next": "Pass Inputs to List Backup Lambda EBS"
+                        },
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "ProtectionGroup",
+                          "Next": "Pass Inputs to List Backup Lambda PG"
                         }
                       ],
                       "Default": "Fail Type/List"
@@ -945,6 +1011,180 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status EBS"
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    },
+                    "Pass Inputs to List Backup Lambda PG": {
+                      "Type": "Pass",
+                      "Next": "Lambda List PG Backups",
+                      "Parameters": {
+                        "bear.$": "$$.Execution.Input.bear",
+                        "debug.$": "$$.Execution.Input.debug",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "search_pg_name.$": "$.target.search_pg_name",
+                        "search_bucket_names.$": "$.target.search_bucket_names",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset"
+                      }
+                    },
+                    "Lambda List PG Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListPG}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List PG Lambda status"
+                    },
+                    "Check List PG Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual PG Restore"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual PG Restore": {
+                      "Type": "Map",
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "INLINE"
+                        },
+                        "StartAt": "Pass Inputs to Restore PG Lambda",
+                        "States": {
+                          "Pass Inputs to Restore PG Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target"
+                            },
+                            "Next": "Lambda Restore PG"
+                          },
+                          "Lambda Restore PG": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestorePG}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore PG Lambda status"
+                          },
+                          "Check Restore PG Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status PG"
+                              }
+                            ],
+                            "Default": "PG Restore Lambda Fail"
+                          },
+                          "Pass inputs to Clumio Check Task Status PG": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            },
+                            "Next": "Lambda Clumio Check Task Status PG"
+                          },
+                          "Lambda Clumio Check Task Status PG": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${TaskPG}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Choice"
+                          },
+                          "Choice": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary PG"
+                              },
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 205,
+                                "Next": "EBS Wait 30 and check task status again"
+                              }
+                            ],
+                            "Default": "PG Restore Lambda Fail"
+                          },
+                          "Restore Summary PG": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "PG Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "EBS Wait 30 and check task status again": {
+                            "Type": "Wait",
+                            "Seconds": 30,
+                            "Next": "Pass inputs to Clumio Check Task Status PG"
                           }
                         }
                       },
