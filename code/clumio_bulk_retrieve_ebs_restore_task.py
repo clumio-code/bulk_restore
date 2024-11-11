@@ -15,12 +15,13 @@
 from botocore.exceptions import ClientError
 import boto3
 import json
+import common
 from clumioapi import configuration, clumioapi_client
 
 
 def lambda_handler(events, context):
     bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     inputs = events.get("inputs", {})
     task = inputs.get('task', None)
 

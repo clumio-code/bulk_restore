@@ -1,6 +1,8 @@
 import datetime
 
 
+DEFAULT_BASE_URL = 'https://us-west-2.api.clumio.com/'
+
 def get_sort_and_ts_filter(
     direction: str, start_day_offset: int, end_day_offset: int
 ) -> tuple[str, str]:

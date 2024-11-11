@@ -21,7 +21,7 @@ import common
 
 def lambda_handler(events, context):
     bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account = events.get('source_account', None)
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
