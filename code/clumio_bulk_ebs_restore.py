@@ -17,13 +17,14 @@ import random
 import string
 import boto3
 import json
+import common
 from clumioapi import configuration, exceptions, clumioapi_client, models
 
 
 def lambda_handler(events, context):
     record = events.get("record", {})
     bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     target_account = events.get('target', {}).get('target_account', None)
     target_region = events.get('target', {}).get('target_region', None)
     target_az = events.get('target', {}).get("target_az", None)
