@@ -26,7 +26,6 @@ def lambda_handler(events, context):
     base_url = events.get('base_url', None)
     target_account = events.get('target', {}).get('target_account', None)
     target_region = events.get('target', {}).get('target_region', None)
-    debug_input = events.get('debug', 0)
     target_az = events.get('target', {}).get("target_az", None)
     target_kms_key_native_id = events.get('target', {}).get("target_kms_key_native_id", None)
     target_iops = events.get('target', {}).get("target_iops", None)
@@ -108,12 +107,13 @@ def lambda_handler(events, context):
     try:
         response = client.restored_aws_ebs_volumes_v2.restore_aws_ebs(body=request)
         inputs = {
-            'resource_type': 'EC2',
+            'resource_type': 'EBS',
             'run_token': run_token,
             'task': response.task_id,
             'source_backup_id': source_backup_id,
             'source_volume_id': source_volume_id
         }
+        return {"status": 200, "msg": "completed", "inputs": inputs}
     except exceptions.clumio_exception.ClumioExceptions as e:
         return {
             "status": "400",
