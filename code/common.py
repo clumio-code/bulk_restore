@@ -33,6 +33,8 @@ def get_total_list(function, api_filter, sort):
     total_list = []
     while True:
         response = function(filter=api_filter, sort=sort, start=start)
+        if response.total_count == 0:
+            break
         total_list.extend(response.embedded.items)
         if response.total_pages_count <= start:
             break
