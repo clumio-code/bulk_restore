@@ -25,12 +25,13 @@ def lambda_handler(events, context):
     record = events.get("record", {})
     bear = events.get('bear', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)
-    target_account = events.get('target', {}).get('target_account', None)
-    target_region = events.get('target', {}).get('target_region', None)
-    target_az = events.get('target', {}).get("target_az", None)
-    target_kms_key_native_id = events.get('target', {}).get("target_kms_key_native_id", None)
-    target_iops = events.get('target', {}).get("target_iops", None)
-    target_volume_type = events.get('target', {}).get("target_volume_type", None)
+    target = events.get('target', {})
+    target_account = target.get('target_account', None)
+    target_region = target.get('target_region', None)
+    target_az = target.get("target_az", None)
+    target_kms_key_native_id = target.get("target_kms_key_native_id", None)
+    target_iops = target.get("target_iops", None)
+    target_volume_type = target.get("target_volume_type", None)
 
     inputs = {
         'resource_type': 'EBS',
@@ -42,6 +43,14 @@ def lambda_handler(events, context):
 
     if len(record) == 0:
         return {"status": 205, "msg": "no records", "inputs": inputs}
+
+    # Validate inputs
+    try:
+        if target_iops is not None:
+            target_iops = int(target_iops)
+    except ValueError as e:
+        error = f"invalid target_iops input: {e}"
+        return {"status": 401, "records": [], "msg": f"failed {error}"}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -70,16 +79,7 @@ def lambda_handler(events, context):
         error = f"invalid backup record {record}"
         return {"status": 402, "msg": f"failed {error}", "inputs": inputs}
 
-    # Set restore target information
-    target = {
-        "account": target_account,
-        "region": target_region,
-        "aws_az": target_az,
-        "iops": target_iops,
-        "volume_type": target_volume_type,
-        "kms_key_native_id": target_kms_key_native_id
-    }
-
+    # Retrieve the environment.
     env_filter = (
         '{'
         '"account_native_id": {"$eq": "' + target_account + '"},'
@@ -101,12 +101,15 @@ def lambda_handler(events, context):
         aws_az=target_az,
         environment_id=target_env_id,
         iops=target_iops,
-        kms_key_native_id=target_kms_key_native_id,
-        p_type=target_volume_type,
+        kms_key_native_id=target_kms_key_native_id or None,
+        p_type=target_volume_type or None,
+        tags=[],
     )
-    request = models.restore_aws_ebs_volume_v2_request(source=source, target=target)
+    request = models.restore_aws_ebs_volume_v2_request.RestoreAwsEbsVolumeV2Request(
+        source=source, target=target
+    )
     try:
-        response = client.restored_aws_ebs_volumes_v2.restore_aws_ebs(body=request)
+        response = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(body=request)
         inputs = {
             'resource_type': 'EBS',
             'run_token': run_token,
@@ -115,7 +118,7 @@ def lambda_handler(events, context):
             'source_volume_id': source_volume_id
         }
         return {"status": 200, "msg": "completed", "inputs": inputs}
-    except exceptions.clumio_exception.ClumioExceptions as e:
+    except exceptions.clumio_exception.ClumioException as e:
         return {
             "status": "400",
             "msg": f"Failure during restore request: {e}",
