@@ -17,20 +17,20 @@ import random
 import string
 import boto3
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+from clumioapi import configuration, exceptions, clumioapi_client, models
 
 
 def lambda_handler(events, context):
     record = events.get("record", {})
     bear = events.get('bear', None)
-    target_account = events.get('target',{}).get('target_account', None)
-    target_region = events.get('target',{}).get('target_region', None)
-    debug_input = events.get('debug', None)
-    target_az = events.get('target',{}).get("target_az", None)
-    target_kms_key_native_id = events.get('target',{}).get("target_kms_key_native_id", None)
-    target_iops = events.get('target',{}).get("target_iops", None)
-    target_volume_type = events.get('target',{}).get("target_volume_type", None)
+    base_url = events.get('base_url', None)
+    target_account = events.get('target', {}).get('target_account', None)
+    target_region = events.get('target', {}).get('target_region', None)
+    debug_input = events.get('debug', 0)
+    target_az = events.get('target', {}).get("target_az", None)
+    target_kms_key_native_id = events.get('target', {}).get("target_kms_key_native_id", None)
+    target_iops = events.get('target', {}).get("target_iops", None)
+    target_volume_type = events.get('target', {}).get("target_volume_type", None)
 
     inputs = {
         'resource_type': 'EBS',
@@ -40,17 +40,8 @@ def lambda_handler(events, context):
         'source_volume_id': None
     }
 
-    # Validate inputs
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f"invalid debug: {e}"
-        return {"status": 401, "task": None,"msg": f"failed {error}",
-                "inputs": inputs}
-
     if len(record) == 0:
-        return {"status": 205, "msg": "no records",
-                "inputs": inputs}
+        return {"status": 205, "msg": "no records", "inputs": inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -59,21 +50,17 @@ def lambda_handler(events, context):
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
             error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
             return {"status": 411, "msg": error_msg}
 
-    # Initiate API and configure
-    ebs_restore_api = RestoreEBS()
-    base_url = events.get('base_url', None)
-    if base_url:
-        ebs_restore_api.set_url_prefix(base_url)
-    ebs_restore_api.set_token(bear)
-    ebs_restore_api.set_debug(debug)
+    # Initiate the Clumio API client.
+    if 'https' in base_url:
+        base_url = base_url.split('/')[2]
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))
 
     if record:
@@ -81,17 +68,9 @@ def lambda_handler(events, context):
         source_volume_id = record.get("volume_id")
     else:
         error = f"invalid backup record {record}"
-        return {"status": 402, "msg": f"failed {error}",
-                "inputs": inputs}
-    #new_tag_identifier = [
-    #    {"key": "InstanceToScanStatus", "value": "enable"},
-    #    {"key": "OrginalInstanceId", "value": source_instance_id},
-    #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "value": run_token}
-    #]
-    #ebs_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
-    # Set restore target information
+        return {"status": 402, "msg": f"failed {error}", "inputs": inputs}
 
+    # Set restore target information
     target = {
         "account": target_account,
         "region": target_region,
@@ -100,36 +79,44 @@ def lambda_handler(events, context):
         "volume_type": target_volume_type,
         "kms_key_native_id": target_kms_key_native_id
     }
-    result_target = ebs_restore_api.set_target_for_ebs_restore(target)
-    if not result_target:
-        error_msgs = ebs_restore_api.get_error_msg()
-        msgs_string = ":".join(error_msgs)
-        return {"status": 404, "msg": msgs_string,
-                "inputs": inputs}
-    print(f"target set status {result_target}")
-    # Run restore
-    ebs_restore_api.save_restore_task()
-    [result_run, msg] = ebs_restore_api.ebs_restore_from_record([record])
 
+    env_filter = (
+        '{'
+        '"account_native_id": {"$eq": "' + target_account + '"},'
+        '"aws_region": {"$eq": "' + target_region + '"}'
+        '}'
+    )
+    response = client.aws_environments_v1.list_aws_environments(filter=env_filter)
+    if not response.current_count:
+        return {
+            "status": 402,
+            "msg": f"The evironment with account_id {target_account} and region {target_region} cannot be found.",
+            "inputs": inputs
+        }
+    target_env_id = response.embedded.items[0].p_id
 
-    if result_run:
-        # Get a list of tasks for all of the restores.
-        task_list = ebs_restore_api.get_restore_task_list()
-        if debug > 5: print(task_list)
-        task = task_list[0].get("task",None)
+    # Perform the restore.
+    source = models.ebs_restore_source.EBSRestoreSource(backup_id=source_backup_id)
+    target = models.ebs_restore_target.EBSRestoreTarget(
+        aws_az=target_az,
+        environment_id=target_env_id,
+        iops=target_iops,
+        kms_key_native_id=target_kms_key_native_id,
+        p_type=target_volume_type,
+    )
+    request = models.restore_aws_ebs_volume_v2_request(source=source, target=target)
+    try:
+        response = client.restored_aws_ebs_volumes_v2.restore_aws_ebs(body=request)
         inputs = {
             'resource_type': 'EC2',
             'run_token': run_token,
-            'task': task,
-            'source_backup_id':source_backup_id,
+            'task': response.task_id,
+            'source_backup_id': source_backup_id,
             'source_volume_id': source_volume_id
         }
-        if len(task_list) > 0:
-            return {"status": 200, "msg": "completed",
-                    "inputs": inputs}
-        else:
-            return {"status": 207, "msg": "no restores",
-                    "inputs": inputs}
-    else:
-        return {"status": 403, "msg": msg,
-                "inputs": inputs}
+    except exceptions.clumio_exception.ClumioExceptions as e:
+        return {
+            "status": "400",
+            "msg": f"Failure during restore request: {e}",
+            "inputs": inputs
+        }
