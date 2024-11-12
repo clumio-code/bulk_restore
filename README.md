@@ -1,7 +1,7 @@
 # Clumio Bulk Restore Automation
 
 > [!IMPORTANT]
-> Copyright 2024, Clumio Inc.
+> Copyright 2024, Clumio, a Commvault Company.
 > Licensed under the Apache License, Version 2.0 (the "License");
 > you may not use this file except in compliance with the License.
 > You may obtain a copy of the License at
@@ -13,46 +13,74 @@
 > limitations under the License.
 
 ## What is a Bulk Restore
-Bulk restores are used to restore multiple resources from different originating locations (AWS account and region pairing) and/or times to one or more target locations.
+Bulk restores are used to restore multiple resources from different originating
+locations (AWS account and region pairing) and/or times to one or more target
+locations.
 
 ## How to use a Bulk Restore
-Based upon the source definition Clumio will find the set of appropriate backups for identified resources and restore those resources using the user provided target information.
+Based upon the source definition, Clumio will find the set of appropriate
+backups for identified resources and restore those resources using the user
+provided target information.
 
 ## What information do I need to initiate a bulk restore
-The inputs - in json format - required to run the bulk restore automation can be defined ahead of time or easily crafted/updated when the restore is needed. Inputs are in two
-different categories: source information and target information.  Source information can include AWS account, AWS Region, AWS resources tags, and a datetime search window.
-Target information is the resource specific AWS infrastructure elements running in the target location that are required to deploy that specific type of AWS resource.
-The only additional value you will need is a Clumio API token that validates your permissions to run the automation based upon your Clumio login.
+The inputs - in json format - required to run the bulk restore automation can be
+defined ahead of time or easily crafted/updated when the restore is needed.
+Inputs are in two different categories: source information and target information.
+
+Source information can include AWS account, AWS Region, AWS resources tags, and
+a datetime search window.
+
+Target information is the resource specific AWS infrastructure elements running
+in the target location that are required to deploy that specific type of AWS
+resource. The only additional value you will need is a Clumio API token that
+validates your permissions to run the automation based upon your Clumio login.
 
 ## What does the Clumio bulk restore use for this solution
-To greatly simplify the process of running the recovery, the bulk restore automation leverages a serverless architecture (AWS Lambda functions) and a state machine (AWS StepFunctions)
-to scale out the recovery process to initiate all restores at the same time.  Limits on the number of concurrent restores and the performance of those restores are dependent upon the
-resource types being restored.  https://help.clumio.com/docs/clumio-service-limits
-This solution can be deploy anywhere in AWS and does not need to have access to either the original AWS source location or the target locations.  Outside of the AWS resources mentioned above,
-logging in AWS CloudWatch, a S3 bucket used temporarily to deploy the solution; the only other AWS resource needed is an AWS Secret which can optionally be used to store your Clumio API token.
+To greatly simplify the process of running the recovery, the bulk restore
+automation leverages a serverless architecture (AWS Lambda functions) and a
+state machine (AWS StepFunctions). This scales out the recovery process to
+initiate all restores at the same time.
 
-## Files in this github
+Limits on the number of concurrent restores and the performance of those restores
+are dependent upon the resource types being restored.
+https://help.clumio.com/docs/clumio-service-limits
+
+This solution can be deployed anywhere in AWS and does not need to have access to
+either the original AWS source location or the target locations. Outside of the
+AWS resources mentioned above, logging in AWS CloudWatch, a S3 bucket used
+temporarily to deploy the solution; the only other AWS resource needed is an AWS
+Secret which can optionally be used to store your Clumio API token.
+
+## Files in this source repository
 > [!NOTE]
-> ZIP file clumio_bulk_restore.zip contains all of the code for the lambda functions and the step function.  This zip file must be uploaded
->  to a S3 bucket where it can be accessed by the CFT template when you deploy the solution
-
-> [!NOTE]
-> Python files are includes in this github repository for information purposes only.
-> This python code represents the contents of the lambda functions used by the state machine.
-> This code along with non-default python packages are bundled in the ZIP file that is required to run the CFT.
-
-> [!NOTE]
-> JSON file example_step_function_inputs.json is an example of the inputs required to run the step function
-> These inputs would be modified to reflect your environment
-
-
-> [!NOTE]
-> An IAM role that has permissions to execute the step function and the lambda functions (and to write to CloudWatch for logging purposes) must be identified/created before
-> you deploy the CFT template.  If required, you can modify the permission of this IAM role after all of the resources have been created to scope those permissions
-> to achieve least privilege.  If you use the AWS secret to store your Clumio api token, this IAM Role will also need to have read access to the secret
+> ZIP file clumio_bulk_restore.zip contains all of the code for the lambda
+> functions and the step function.  This zip file must be uploaded to a S3
+> bucket where it can be accessed by the CFT template when you deploy the solution.
 
 > [!NOTE]
-> YAML file clumio_bulk_restore_deploy_cft.yaml is the CloudFormation (CFT) deployment template.  Deploy this CFT template to setup the solution
+> The files included in this github repository for information purposes only.
+> This python code represents the contents of the lambda functions used by the
+> state machine. This code along with non-default python packages are bundled in
+> the ZIP file that is required to run the CFT.
+
+> [!NOTE]
+> JSON file example_step_function_inputs.json is an example of the inputs
+> required to run the step function. These inputs would be modified to reflect
+> your environment.
+
+
+> [!NOTE]
+> An IAM role that has permissions to execute the step function and the lambda
+> functions (and to write to CloudWatch for logging purposes) must be
+> identified/created before you deploy the CFT template. If required, you can
+> modify the permission of this IAM role after all of the resources have been
+> created to scope those permissions to achieve least privilege. If you use the
+> AWS secret to store your Clumio api token, this IAM Role will also need to
+> have read access to the secret.
+
+> [!NOTE]
+> The `clumio_bulk_restore_deploy_cft.yaml` file is the CloudFormation (CFT)
+> deployment template. Deploy this CFT template to setup the solution.
 
 ## Running the Automation
 > [!TIP]
@@ -136,4 +164,5 @@ logging in AWS CloudWatch, a S3 bucket used temporarily to deploy the solution; 
 
 
 > [!NOTE]
-> Optional infrastructure target values may still be required based upon the configuration of the original backed up resource
+> Optional infrastructure target values may still be required based upon the
+> configuration of the original backed up resource.
