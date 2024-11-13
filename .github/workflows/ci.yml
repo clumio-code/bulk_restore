@@ -44,7 +44,7 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
       - name: Install
-        run: make dev-install
+        run: make install-dev
       # Do not run the linter and other checks yet.
 #      - name: lint
 #        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
