@@ -1,0 +1,44 @@
+# To install the hooks run (bin/pip_sync will do that as well):
+#   `pre-commit install -t pre-commit -t pre-push`
+#
+# If you need to disable a hook temporarily (hooks can be wrong sometimes) you
+# can simply add `SKIP=<hook-id` before the git commit command:
+#  `SKIP=gray git commit`
+#
+---
+repos:
+  #  CENG-1675: Git hook to prevent pushes to protected branches
+  - repo: https://github.com/clumio-code/pre-push-hooks
+    rev: v0.2
+    hooks:
+      - id: check-branch-for-push
+        args: [
+          '--pattern', '^user/.*',
+          '--pattern', '^team/.*',
+          '--pattern', '^revert-[0-9]+-user/.*'
+        ]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1048']
+        stages: [pre-commit, manual]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version. Keep in sync with the version in requirements-dev.txt.
+    rev: v0.7.3
+    hooks:
+      # Run the linter.
+      - id: ruff
+        stages: [pre-commit]
+      # Do not run the formatter for now.
+      # - id: ruff-format
+
+  # yamllint
+  - repo: https://github.com/adrienverge/yamllint.git
+    # When updating the rev here, update the yamllint entry in requirements.txt.
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        stages: [pre-commit]
