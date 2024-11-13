@@ -47,8 +47,7 @@ install-dev:
 test:
 	rm -rf $(test_reports) .coverage; \
     mkdir -p $(test_reports); \
-    python3 -m green --run-coverage --junit-report=$(test_reports)/bulk_restore-pytests.xml \
-    --include-patterns 'tool/*' code; \
+    python3 -m green -v --run-coverage --junit-report=$(test_reports)/bulk_restore-pytests.xml code; \
     python3 -m coverage xml -o $(test_reports)/bulk_restore-pycoverage.xml; \
     python3 -m coverage html -d $(test_reports)/bulk_restore-pycoverage-html
 	@echo "HTML code coverage report was generated in $(test_reports)/bulk_restore-pycoverage-html"
