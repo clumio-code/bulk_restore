@@ -9,21 +9,23 @@
 # to help configure the development tools.
 
 [project]
-name = "clumio-bulk_restore"
-description = "Bulk Restore for Clumio, a Commvault Company"
+name = 'clumio-bulk_restore'
+description = 'Bulk Restore for Clumio, a Commvault Company'
 readme = 'README.md'
 authors = [ {name = 'Clumio, a Commvault Company'} ]
-dynamic = ["dependencies", "optional-dependencies"]
-requires-python = ">=3.12"
+dynamic = ['dependencies', 'optional-dependencies']
+requires-python = '>=3.12'
 
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
-optional-dependencies.dev = { file = ["requirements-dev.txt"] }
+dependencies = {file = ['requirements.txt']}
+optional-dependencies.dev = { file = ['requirements-dev.txt'] }
 
 
 [tool.coverage.run]
 branch = true
+source = ['code']
+
 
 [tool.coverage.report]
 exclude_lines = [
@@ -35,65 +37,65 @@ exclude_lines = [
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-    "vendor",
+    '.bzr',
+    '.direnv',
+    '.eggs',
+    '.git',
+    '.git-rewrite',
+    '.hg',
+    '.ipynb_checkpoints',
+    '.mypy_cache',
+    '.nox',
+    '.pants.d',
+    '.pyenv',
+    '.pytest_cache',
+    '.pytype',
+    '.ruff_cache',
+    '.svn',
+    '.tox',
+    '.venv',
+    '.vscode',
+    '__pypackages__',
+    '_build',
+    'buck-out',
+    'build',
+    'dist',
+    'node_modules',
+    'site-packages',
+    'venv',
+    'vendor',
     # Temporarily ignore the sdk file due to hundreds of reported issues.
-    "clumio_sdk*.py"
+    'clumio_sdk*.py'
 ]
-target-version = "py312"
+target-version = 'py312'
 indent-width = 4
 line-length = 100
 
 [tool.ruff.format]
 # Unlike Black, use single quotes for strings.
-quote-style = "single"
-indent-style = "space"
+quote-style = 'single'
+indent-style = 'space'
 skip-magic-trailing-comma = false
-line-ending = "auto"
+line-ending = 'auto'
 
 
 [tool.ruff.lint]
-select = ["D", "I", "PL", "S", "W", "UP"]
+select = ['D', 'I', 'PL', 'S', 'W', 'UP']
 
 # On top of the Google convention, disable `D417`, which requires
 # documentation for every function parameter.
 ignore = [
-    "D101",  # undocumented-public-class, covered by pylint for now.
-    "D102",  # undocumented-public-method, covered by pylint for now.
-    "D104",  # undocumented-public-package, would require empty __init__.py to have docstrings.
-    "D107",  # undocumented-public-init, covered by pylint for now.
-    "D410",  # no-blank-line-after-section, would need a lot of docstrings changes.
-    "D411",  # no-blank-line-before-section, would need a lot of docstrings changes.
+    'D101',  # undocumented-public-class, covered by pylint for now.
+    'D102',  # undocumented-public-method, covered by pylint for now.
+    'D104',  # undocumented-public-package, would require empty __init__.py to have docstrings.
+    'D107',  # undocumented-public-init, covered by pylint for now.
+    'D410',  # no-blank-line-after-section, would need a lot of docstrings changes.
+    'D411',  # no-blank-line-before-section, would need a lot of docstrings changes.
 ]
 
 
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = 'google'
 
 
 [tool.ruff.lint.isort]
@@ -101,4 +103,4 @@ lines-after-imports = -1
 
 [tool.uv.pip]
 system = true
-prerelease = "allow"
+prerelease = 'allow'
