@@ -1,0 +1,15 @@
+#
+# Python development requirements, allows us to locally install with just
+#  `pip install -r requirements-dev.txt`
+#
+
+-r requirements.txt
+# We should ensure that the stubs match the boto3 version in requirements.txt.
+boto3-stubs[cloudformation,iam,identitystore,organizations,s3,secretsmanager,sso-admin]==1.35.59
+green>=4.0.2
+mypy>=1.13.0
+mypy-extensions>=1.0.0
+pre-commit>=4.0.1
+ruff>=0.7.3
+setuptools>=75.4.0
+yamllint>=1.35.1
