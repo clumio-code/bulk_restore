@@ -17,23 +17,24 @@ import random
 import string
 import boto3
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+from clumioapi import configuration, clumioapi_client, models
+import common
 
 
 def lambda_handler(events, context):
     record = events.get("record", {})
     bear = events.get('bear', None)
-    target_account = events.get('target',{}).get('target_account', None)
-    target_region = events.get('target',{}).get('target_region', None)
-    debug_input = events.get('debug', None)
-    target_az = events.get("target_az", None)
-    target_iam_instance_profile_name = events.get('target',{}).get("target_iam_instance_profile_name", None)
-    target_key_pair_name = events.get('target',{}).get("target_key_pair_name", None)
-    target_security_group_native_ids = events.get('target',{}).get("target_security_group_native_ids", None)
-    target_subnet_native_id = events.get('target',{}).get("target_subnet_native_id", None)
-    target_vpc_native_id = events.get('target',{}).get("target_vpc_native_id", None)
-    target_kms_key_native_id = events.get('target',{}).get("target_kms_key_native_id", None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
+    target = events.get('target', {})
+    target_account = target.get('target_account', None)
+    target_region = target.get('target_region', None)
+    target_az = target.get("target_az", None)
+    target_iam_instance_profile_name = target.get("target_iam_instance_profile_name", None)
+    target_key_pair_name = target.get("target_key_pair_name", None)
+    target_security_group_native_ids = target.get("target_security_group_native_ids", None)
+    target_subnet_native_id = target.get("target_subnet_native_id", None)
+    target_vpc_native_id = target.get("target_vpc_native_id", None)
+    target_kms_key_native_id = target.get("target_kms_key_native_id", None)
 
     inputs = {
         'resource_type': 'EC2',
@@ -44,16 +45,8 @@ def lambda_handler(events, context):
     }
 
     # Validate inputs
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f"invalid debug: {e}"
-        return {"status": 401, "task": None,"msg": f"failed {error}",
-                "inputs": inputs}
-
     if len(record) == 0:
-        return {"status": 205, "msg": "no records",
-                "inputs": inputs}
+        return {"status": 205, "msg": "no records", "inputs": inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -62,50 +55,59 @@ def lambda_handler(events, context):
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
             error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
             return {"status": 411, "msg": error_msg}
 
-    # Initiate API and configure
-    ec2_restore_api = RestoreEC2()
-    base_url = events.get('base_url', None)
-    if base_url:
-        ec2_restore_api.set_url_prefix(base_url)
-    ec2_restore_api.set_token(bear)
-    ec2_restore_api.set_debug(debug)
+    # Initiate the Clumio API client.
+    if 'https' in base_url:
+        base_url = base_url.split('/')[2]
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))
 
     if record:
-        source_backup_id = record.get("backup_record", {}).get('source_backup_id', None)
+        backup_record = record.get("backup_record", {})
+        source_backup_id = backup_record.get('source_backup_id', None)
         source_instance_id = record.get("instance_id")
     else:
         error = f"invalid backup record {record}"
-        return {"status": 402, "msg": f"failed {error}",
-                "inputs": inputs}
-    #new_tag_identifier = [
-    #    {"key": "InstanceToScanStatus", "value": "enable"},
-    #    {"key": "OrginalInstanceId", "value": source_instance_id},
-    #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "value": run_token}
-    #]
-    #ec2_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
-    # Set restore target information
+        return {"status": 402, "msg": f"failed {error}", "inputs": inputs}
 
-    target = {
-        "account": target_account,
-        "region": target_region,
-        "aws_az": target_az,
-        "iam_instance_profile_name": target_iam_instance_profile_name,
-        "key_pair_name": target_key_pair_name,
-        "security_group_native_ids": target_security_group_native_ids,
-        "subnet_native_id": target_subnet_native_id,
-        "vpc_native_id": target_vpc_native_id,
-        "kms_key_native_id": target_kms_key_native_id
-    }
+    # Retrieve the environment id.
+    env_filter = (
+        '{'
+        '"account_native_id": {"$eq": "' + target_account + '"},'
+        '"aws_region": {"$eq": "' + target_region + '"}'
+        '}'
+    )
+    response = client.aws_environments_v1.list_aws_environments(filter=env_filter)
+    if not response.current_count:
+        return {
+            "status": 402,
+            "msg": f"The evironment with account_id {target_account} and region {target_region} cannot be found.",
+            "inputs": inputs
+        }
+    target_env_id = response.embedded.items[0].p_id
+
+    # Prepare the restore request.
+    source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
+    ami_target = models.ec2_ami_restore_target.EC2AMIRestoreTarget(
+        ebs_block_device_mappings=ebs_block_device_mappings,
+        environment_id=target_env_id,
+        name=backup_record.get("source_ami_name", None)
+    )
+    target = models.ec2_restore_target.EC2RestoreTarget(
+        ami_restore_target=ami_target,
+    )
+    request = models.restore_aws_ec2_instance_v1_request.RestoreAwsEc2InstanceV1Request(
+        source=source,
+        target=target
+    )
+    response = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(body=request)
+
     result_target = ec2_restore_api.set_target_for_instance_restore(target)
     if not result_target:
         error_msgs = ec2_restore_api.get_error_msg()

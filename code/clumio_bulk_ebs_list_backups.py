@@ -58,6 +58,7 @@ def lambda_handler(events, context):
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 
+    # Retrieve the list of backup records.
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
