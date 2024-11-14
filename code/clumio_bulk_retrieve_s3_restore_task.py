@@ -12,36 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from botocore.exceptions import ClientError
-import boto3
+"""Lambda function to retrieve the S3 restore task."""
+
+from __future__ import annotations
+
 import json
+from typing import TYPE_CHECKING, Any
+
+import boto3
+import botocore.exceptions
 from clumio_sdk_v13 import RetrieveTask
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
-def lambda_handler(events, context):
+
+def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the S3 restore task."""
     bear = events.get('bear', None)
     base_url = events.get('base_url', None)
-    inputs = events.get("inputs", {})
+    inputs = events.get('inputs', {})
     task = inputs.get('task', None)
     debug = int(events.get('debug', None))
 
     if not bear:
-        bearer_secret = "clumio/token/bulk_restore"
+        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
         secretsmanager = boto3.client('secretsmanager')
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
             bear = secret_dict.get('token', None)
-        except ClientError as e:
+        except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Describe Volume failed - {error}"
-            return {"status": 411, "msg": error_msg}
+            error_msg = f'Describe Volume failed - {error}'
+            return {'status': 411, 'msg': error_msg}
 
     if task:
         task_id = task
     else:
-        return {"status": 402, "msg": "no task id", "inputs": inputs}
+        return {'status': 402, 'msg': 'no task id', 'inputs': inputs}
 
     # Initiate the Clumio API client.
     retrieve_task_api = RetrieveTask()
@@ -51,10 +60,10 @@ def lambda_handler(events, context):
     retrieve_task_api.set_debug(debug)
 
     # Retrieve the task status.
-    [complete_flag, status, _] = retrieve_task_api.retrieve_task_id(task_id, "one")
-    if complete_flag and status != "completed":
-        return {"status": 403, "msg": f"task failed {status}", "inputs": inputs}
-    elif complete_flag and status == "completed":
-        return {"status": 200, "msg": "task completed", "inputs": inputs}
+    [complete_flag, status, _] = retrieve_task_api.retrieve_task_id(task_id, 'one')
+    if complete_flag and status != 'completed':
+        return {'status': 403, 'msg': f'task failed {status}', 'inputs': inputs}
+    elif complete_flag and status == 'completed':
+        return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
     else:
-        return {"status": 205, "msg": f"task not done - {status}", "inputs": inputs}
+        return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}

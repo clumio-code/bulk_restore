@@ -24,7 +24,8 @@ optional-dependencies.dev = { file = ['requirements-dev.txt'] }
 
 [tool.coverage.run]
 branch = true
-source = ['code']
+# Ensure we do not calculate coverage on 3rd party packages.
+source = ['.']
 
 
 [tool.coverage.report]
@@ -100,6 +101,9 @@ convention = 'google'
 
 [tool.ruff.lint.isort]
 lines-after-imports = -1
+
+[tool.ruff.lint.per-file-ignores]
+'*/test/test_*.py' = ['D']
 
 [tool.uv.pip]
 system = true

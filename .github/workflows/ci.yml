@@ -45,15 +45,15 @@ jobs:
         run: python -c "import sys; print(sys.version)"
       - name: Install
         run: make install-dev
-      # Do not run the linter and other checks yet.
-#      - name: lint
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make lint
-#      - name: mypy
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make mypy
-#      - name: format
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make format
+      - name: lint
+        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
+        run: make lint
+      - name: mypy
+        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
+        # Run mypy but do not fail CI since there are hundreds of issues to fix.
+        run: make mypy || true
+      - name: Format check
+        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
+        run: make format-check
       - name: Unit Tests
         run: make test

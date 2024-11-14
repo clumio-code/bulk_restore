@@ -1,14 +1,19 @@
 # Copyright 2024, Clumio, a Commvault Company.
 #
+
+"""Common methods and constants for the bulk restore lambda functions."""
+
 import datetime
+from collections.abc import Callable
+from typing import Any, Final
 
+DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
+START_TIMESTAMP_STR: Final = 'start_timestamp'
 
-DEFAULT_BASE_URL = 'https://us-west-2.api.clumio.com/'
-START_TIMESTAMP_STR = 'start_timestamp'
 
 def get_sort_and_ts_filter(
     direction: str, start_day_offset: int, end_day_offset: int
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     """Get the sort and the timestamp filter."""
     current_timestamp = datetime.datetime.now(datetime.UTC)
     end_timestamp = current_timestamp - datetime.timedelta(days=end_day_offset)
@@ -26,8 +31,8 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function, api_filter, sort):
-    """Get the list of all items
+def get_total_list(function: Callable, api_filter: dict[str, Any], sort: str) -> list:
+    """Get the list of all items.
 
     Args:
         function: must be list API function call with pagination feature.
@@ -38,11 +43,10 @@ def get_total_list(function, api_filter, sort):
     total_list = []
     while True:
         response = function(filter=api_filter, sort=sort, start=start)
-        if response.total_count == 0:
+        if not response.total_count:
             break
         total_list.extend(response.embedded.items)
         if response.total_pages_count <= start:
             break
         start += 1
     return total_list
-
