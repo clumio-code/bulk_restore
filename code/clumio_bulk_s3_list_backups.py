@@ -17,6 +17,7 @@ import boto3
 import datetime
 import json
 from clumioapi import configuration, clumioapi_client
+import common
 
 
 def lambda_handler(events, context):
@@ -72,21 +73,12 @@ def lambda_handler(events, context):
         asset_ids = [item.p_id for item in response.embedded.items if item.bucket_name in s3_bucket_names]
 
     # List pg backups based on the time filter and pg id filter.
-    current_timestamp = datetime.datetime.now(datetime.UTC)
-    end_timestamp = current_timestamp - datetime.timedelta(days=end_search_day_offset_input)
-    end_timestamp_str = end_timestamp.strftime('%Y-%m-%d') + 'T23:59:59Z'
-
-    start_timestamp = current_timestamp - datetime.timedelta(days=start_search_day_offset_input)
-    start_timestamp_str = start_timestamp.strftime('%Y-%m-%d') + 'T00:00:00Z'
-    if search_direction == 'after':
-        sort = 'start_timestamp'
-        ts_filter = '"start_timestamp": {"$gt":"' + start_timestamp_str + '", "$lte":"' + end_timestamp_str + '"},'
-    else:
-        sort = '-start_timestamp'
-        ts_filter = '"start_timestamp": {"$lte":"' + end_timestamp_str + '"},'
-    api_filter = '{' + ts_filter + '"protection_group_id": {"$eq":"' + pg_id + '"}}'
+    sort, ts_filter = common.get_sort_and_ts_filter(
+        search_direction, start_search_day_offset_input, end_search_day_offset_input
+    )
+    ts_filter['protection_group_id'] = {'$eq': pg_id}
     response = client.backup_protection_groups_v1.list_backup_protection_groups(
-        filter=api_filter, sort=sort
+        filter=json.loads(ts_filter), sort=sort
     )
     if response.total_count == 0:
         return {"status": 207, "records": [], "target": target, "msg": "empty set"}

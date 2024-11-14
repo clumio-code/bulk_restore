@@ -313,6 +313,7 @@ Resources:
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
                         "debug.$": "$$.Execution.Input.debug",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
                         "source_region.$": "$.target.source_region",
@@ -371,6 +372,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
                             }
@@ -415,6 +417,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
                           },
@@ -497,6 +500,7 @@ Resources:
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
                         "debug.$": "$$.Execution.Input.debug",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
                         "source_region.$": "$.target.source_region",
@@ -555,6 +559,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target",
                               "target_account.$": "$.target.target_account",
@@ -607,6 +612,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
                           },
@@ -679,6 +685,7 @@ Resources:
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
                         "debug.$": "$$.Execution.Input.debug",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
                         "source_region.$": "$.target.source_region",
@@ -737,6 +744,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
                             }
@@ -786,6 +794,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
                           },
@@ -853,6 +862,7 @@ Resources:
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
                         "debug.$": "$$.Execution.Input.debug",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
                         "source_region.$": "$.target.source_region",
@@ -911,6 +921,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
                             }
@@ -960,6 +971,7 @@ Resources:
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
                               "debug.$": "$$.Execution.Input.debug",
+                              "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
                           },
