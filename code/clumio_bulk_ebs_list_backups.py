@@ -61,10 +61,9 @@ def lambda_handler(events, context):
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    api_filter = '{' + ts_filter + '}'
     raw_backup_records = common.get_total_list(
         function=client.backup_aws_ebs_volumes_v2.list_backup_aws_ebs_volumes,
-        api_filter=api_filter,
+        api_filter=json.loads(ts_filter),
         sort=sort,
     )
 
