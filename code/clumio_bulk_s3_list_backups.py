@@ -76,9 +76,9 @@ def lambda_handler(events, context):
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset_input, end_search_day_offset_input
     )
-    api_filter = '{' + ts_filter + ',"protection_group_id": {"$eq":"' + pg_id + '"}}'
+    ts_filter['protection_group_id'] = {'$eq': pg_id}
     response = client.backup_protection_groups_v1.list_backup_protection_groups(
-        filter=api_filter, sort=sort
+        filter=json.loads(ts_filter), sort=sort
     )
     if response.total_count == 0:
         return {"status": 207, "records": [], "target": target, "msg": "empty set"}
