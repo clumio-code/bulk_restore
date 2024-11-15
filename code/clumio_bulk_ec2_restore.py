@@ -17,7 +17,7 @@ import random
 import string
 import boto3
 import json
-from clumioapi import configuration, clumioapi_client, models
+from clumioapi import configuration, clumioapi_client, exceptions, models
 import common
 
 
@@ -94,50 +94,48 @@ def lambda_handler(events, context):
 
     # Prepare the restore request.
     source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
-    ami_target = models.ec2_ami_restore_target.EC2AMIRestoreTarget(
+    ebs_block_device_mappings = []
+    for ebs_volume in backup_record.get("source_ebs_storage_list", []):
+        ebs_block_device_mappings.append(
+            models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
+                **ebs_volume
+            )
+        )
+    network_interface = models.ec2_restore_network_interface.EC2RestoreNetworkInterface(
+        device_index=0,
+        security_group_native_ids=target_security_group_native_ids,
+    )
+    instance_restore_target = models.ec2_instance_restore_target.EC2InstanceRestoreTarget(
+        aws_az=target_az,
         ebs_block_device_mappings=ebs_block_device_mappings,
         environment_id=target_env_id,
-        name=backup_record.get("source_ami_name", None)
+        iam_instance_profile_name=target_iam_instance_profile_name or None,
+        key_pair_name=target_key_pair_name or None,
+        network_interfaces=[network_interface],
+        subnet_native_id=target_subnet_native_id,
+        vpc_native_id=target_vpc_native_id,
     )
     target = models.ec2_restore_target.EC2RestoreTarget(
-        ami_restore_target=ami_target,
+        instance_restore_target=instance_restore_target
     )
     request = models.restore_aws_ec2_instance_v1_request.RestoreAwsEc2InstanceV1Request(
         source=source,
         target=target
     )
-    response = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(body=request)
-
-    result_target = ec2_restore_api.set_target_for_instance_restore(target)
-    if not result_target:
-        error_msgs = ec2_restore_api.get_error_msg()
-        msgs_string = ":".join(error_msgs)
-        return {"status": 404, "msg": msgs_string,
-                "inputs": inputs}
-    print(f"target set status {result_target}")
-    # Run restore
-    ec2_restore_api.save_restore_task()
-    [result_run, msg] = ec2_restore_api.ec2_restore_from_record([record])
-
-
-    if result_run:
-        # Get a list of tasks for all of the restores.
-        task_list = ec2_restore_api.get_restore_task_list()
-        if debug > 5: print(task_list)
-        task = task_list[0].get("task",None)
+    try:
+        response = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(body=request)
         inputs = {
-            'resource_type': 'EC2',
+            'resource_type': 'EBS',
             'run_token': run_token,
-            'task': task,
-            'source_backup_id':source_backup_id,
+            'task': response.task_id,
+            'source_backup_id': source_backup_id,
             'source_instance_id': source_instance_id
         }
-        if len(task_list) > 0:
-            return {"status": 200, "msg": "completed",
-                    "inputs": inputs}
-        else:
-            return {"status": 207, "msg": "no restores",
-                    "inputs": inputs}
-    else:
-        return {"status": 403, "msg": msg,
-                "inputs": inputs}
+        return {"status": 200, "msg": "completed", "inputs": inputs}
+
+    except exceptions.clumio_exception.ClumioException as e:
+        return {
+            "status": "400",
+            "msg": f"Failure during restore request: {e}",
+            "inputs": inputs
+        }

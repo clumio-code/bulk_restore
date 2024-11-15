@@ -15,30 +15,16 @@
 from botocore.exceptions import ClientError
 import boto3
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+from clumioapi import configuration, clumioapi_client
+import common
 
 
 def lambda_handler(events, context):
     bear = events.get('bear', None)
-    task = events.get("inputs", {}).get('task', None)
-    source_backup_id = events.get("inputs", {}).get('source_backup_id', None)
-    source_instance_id = events.get("inputs", {}).get('source_instance_id', None)
-    debug_input = events.get('debug', None)
-    run_token = events.get('inputs', {}).get('run_token', None)
-    inputs = {
-        'resource_type': 'EC2',
-        "run_token": run_token,
-        "task": task,
-        'source_backup_id': source_backup_id,
-        'source_instance_id': source_instance_id
-    }
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
+    inputs = events.get("inputs", {})
+    task = inputs.get('task', None)
 
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f"invalid debug: {e}"
-        return {"status": 401, "msg": error, "inputs": inputs}
     if task:
         task_id = task
     else:
@@ -51,34 +37,25 @@ def lambda_handler(events, context):
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
             error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
             return {"status": 411, "msg": error_msg}
 
-    # Initiate API and configure
-    retrieve_task_api = RetrieveTask()
-    base_url = events.get('base_url', None)
-    if base_url:
-        retrieve_task_api.set_url_prefix(base_url)
-    retrieve_task_api.set_token(bear)
-    retrieve_task_api.set_debug(debug)
+    # Initiate the Clumio API client.
+    if 'https' in base_url:
+        base_url = base_url.split('/')[2]
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
 
-    # Run API in one time mode
-    [complete_flag, status, response] = retrieve_task_api.retrieve_task_id(task_id, "one")
-    inputs = {
-        'resource_type': 'EC2',
-        "run_token": run_token,
-        "task": task_id,
-        'source_backup_id': source_backup_id,
-        'source_instance_id': source_instance_id
-    }
-    if complete_flag and not status == "completed":
-        return {"status": 403, "msg": f"task failed {status}", "inputs": inputs}
-    elif complete_flag and status == "completed":
+    # Retrieve the task id status.
+    response = client.tasks_v1.read_task(task_id=task_id)
+    status = response.status
+
+    if status == "completed":
         return {"status": 200, "msg": "task completed", "inputs": inputs}
+    elif status in ['failed', 'aborted']:
+        return {"status": 403, "msg": f"task failed {status}", "inputs": inputs}
     else:
         return {"status": 205, "msg": f"task not done - {status}", "inputs": inputs}

@@ -62,10 +62,9 @@ def lambda_handler(events, context):
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    api_filter = '{' + ts_filter + '}'
     raw_backup_records = common.get_total_list(
         function=client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances,
-        api_filter=api_filter,
+        api_filter=json.loads(ts_filter),
         sort=sort,
     )
 
@@ -73,15 +72,20 @@ def lambda_handler(events, context):
     backup_records = []
     for backup in raw_backup_records:
         if backup.account_native_id == source_account and backup.aws_region == source_region:
+            ebs_mapping = [{
+                "name": ebs_volume.name,
+                "volume_native_id": ebs_volume.volume_native_id,
+                "kms_key_native_id": ebs_volume.kms_key_native_id,
+            } for ebs_volume in backup.attached_backup_ebs_volumes]
             backup_record = {
-                "instance_id": '',
+                "instance_id": backup.instance_id,
                 "backup_record": {
                     "source_backup_id": backup.p_id,
                     "source_ami_name": backup.backup_ami.name,
                     "source_iam_instance_profile_name": backup.iam_instance_profile,
                     "source_key_pair": backup.key_pair_name,
                     "source_network_interface_list": backup.network_interfaces,
-                    "source_ebs_storage_list": backup.attached_backup_ebs_volumes,
+                    "source_ebs_storage_list": ebs_mapping,
                     "source_instance_tags": [tag.__dict__ for tag in backup.tags],
                     "source_vpc_id": backup.vpc_native_id,
                     "source_az": backup.aws_az,

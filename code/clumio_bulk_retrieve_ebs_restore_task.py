@@ -40,7 +40,7 @@ def lambda_handler(events, context):
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Describe Volume failed - {error}"
+            error_msg = f"Describe Token failed - {error}"
             return {"status": 411, "msg": error_msg}
 
     # Initiate the Clumio API client.
