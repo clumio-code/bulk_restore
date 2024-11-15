@@ -25,10 +25,10 @@ def lambda_handler(events, context):
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
     search_tag_value = events.get('search_tag_value', None)
-    search_direction = events.get('search_direction', None)
-    start_search_day_offset_input = events.get('start_search_day_offset', 0)
-    end_search_day_offset_input = events.get('end_search_day_offset', 10)
-    target = events.get('target',{})
+    target = events.get('target', {})
+    search_direction = target.get('search_direction', None)
+    start_search_day_offset_input = target.get('start_search_day_offset', 0)
+    end_search_day_offset_input = target.get('end_search_day_offset', 10)
     debug_input = events.get('debug', 0)
 
     # Validate inputs
@@ -47,12 +47,10 @@ def lambda_handler(events, context):
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
             error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
             return {"status": 411, "msg": error_msg}
 
     #Initiate List RDS Backups

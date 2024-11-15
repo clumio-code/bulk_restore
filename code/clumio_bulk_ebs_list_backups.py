@@ -26,10 +26,10 @@ def lambda_handler(events, context):
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
     search_tag_value = events.get('search_tag_value', None)
-    search_direction = events.get('search_direction', None)
-    start_search_day_offset_input = events.get('start_search_day_offset', 1)
-    end_search_day_offset_input = events.get('end_search_day_offset', 0)
     target = events.get('target', {})
+    search_direction = target.get('search_direction', None)
+    start_search_day_offset_input = target.get('start_search_day_offset', 1)
+    end_search_day_offset_input = target.get('end_search_day_offset', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
