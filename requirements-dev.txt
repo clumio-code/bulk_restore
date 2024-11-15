@@ -4,6 +4,7 @@
 #
 
 -r requirements.txt
+aws-lambda-powertools==3.2.0
 # We should ensure that the stubs match the boto3 version in requirements.txt.
 boto3-stubs[cloudformation,iam,identitystore,organizations,s3,secretsmanager,sso-admin]==1.35.59
 green>=4.0.2

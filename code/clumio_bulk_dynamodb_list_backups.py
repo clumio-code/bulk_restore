@@ -12,14 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from botocore.exceptions import ClientError
-import boto3
+"""Lambda function to bulk restore DynamoDB list backups."""
+
+from __future__ import annotations
+
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+from typing import TYPE_CHECKING, Any
+
+import boto3
+import botocore.exceptions
+import clumio_sdk_v13 as clumio_sdk
+
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
 
-def lambda_handler(events, context):
+def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
+    """Handle the lambda function to list DynamoDB backups."""
     bear = events.get('bear', None)
     source_account = events.get('source_account', None)
     source_region = events.get('source_region', None)
@@ -31,21 +40,19 @@ def lambda_handler(events, context):
     target = events.get('target', {})
     debug_input = events.get('debug', 0)
 
-
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
-        bearer_secret = "clumio/token/bulk_restore"
+        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
         secretsmanager = boto3.client('secretsmanager')
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
             # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
-        except ClientError as e:
+        except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
-            return {"status": 411, "msg": error_msg}
+            error_msg = f'Describe Volume failed - {error}'
+            return {'status': 411, 'msg': error_msg}
 
     # Validate inputs
     try:
@@ -53,11 +60,11 @@ def lambda_handler(events, context):
         end_search_day_offset = int(end_search_day_offset_input)
         debug = int(debug_input)
     except ValueError as e:
-        error = f"invalid task id: {e}"
-        return {"status": 401, "records": [], "msg": f"failed {error}"}
+        error = f'invalid task id: {e}'
+        return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate API and configure
-    ddn_backup_list_api = DynamoDBBackupList()
+    ddn_backup_list_api = clumio_sdk.DynamoDBBackupList()
     base_url = events.get('base_url', None)
     if base_url:
         ddn_backup_list_api.set_url_prefix(base_url)
@@ -66,30 +73,31 @@ def lambda_handler(events, context):
 
     # Set search parameters
     r = ddn_backup_list_api.set_page_size(100)
-    print(f"set limit? {r}")
+    print(f'set limit? {r}')
     print(search_tag_key)
     if search_tag_key and search_tag_value:
-        print("i have a tag")
+        print('i have a tag')
         ddn_backup_list_api.ddn_search_by_tag(search_tag_key, search_tag_value)
     else:
-        print("i have not tag")
+        print('i have not tag')
     if search_direction == 'forwards':
         ddn_backup_list_api.set_search_forwards_from_offset(end_search_day_offset)
     elif search_direction == 'backwards':
-        ddn_backup_list_api.set_search_backwards_from_offset(start_search_day_offset, end_search_day_offset)
+        ddn_backup_list_api.set_search_backwards_from_offset(
+            start_search_day_offset, end_search_day_offset
+        )
 
     ddn_backup_list_api.set_aws_account_id(source_account)
     ddn_backup_list_api.set_aws_region(source_region)
 
     # Run search
-    r = ddn_backup_list_api.run_all()
-    print(f"pre-lambda run_all response {r}")
+    response = ddn_backup_list_api.run_all()
+    print(f'pre-lambda run_all response {response}')
 
     # Parse and return results
-    result_dict = ddn_backup_list_api.ddn_parse_results("basic")
+    result_dict = ddn_backup_list_api.ddn_parse_results('basic')
     print(result_dict)
-    ddn_backup_records = result_dict.get("records", [])
-    if len(ddn_backup_records) == 0:
-        return {"status": 207, "records": [], "target": target, "msg": "empty set"}
-    else:
-        return {"status": 200, "records": ddn_backup_records, "target": target, "msg": "completed"}
+    ddn_backup_records = result_dict.get('records', [])
+    if not ddn_backup_records:
+        return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+    return {'status': 200, 'records': ddn_backup_records, 'target': target, 'msg': 'completed'}

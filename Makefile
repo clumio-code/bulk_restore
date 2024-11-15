@@ -23,7 +23,7 @@ test_reports := build/test_reports/py
 
 
 clean:
-	rm -rf build .mypy_cache .coverage *.egg-info dist
+	rm -rf build .mypy_cache .coverage *.egg-info dist code/.coverage
 
 build:
 	rm -rf build/lambda build/clumio_bulk_restore.zip build/clumio_bulk_restore_deploy_cft.yaml
@@ -45,9 +45,10 @@ install-dev:
 
 # Run the unittests.
 test:
-	rm -rf $(test_reports) .coverage; \
+	rm -rf $(test_reports) .coverage code/.coverage; \
     mkdir -p $(test_reports); \
-    python3 -m green -v --run-coverage --junit-report=$(test_reports)/bulk_restore-pytests.xml code; \
+    PYTHONPATH=code python3 -m green -v --run-coverage \
+      --junit-report=$(test_reports)/bulk_restore-pytests.xml .; \
     python3 -m coverage xml -o $(test_reports)/bulk_restore-pycoverage.xml; \
     python3 -m coverage html -d $(test_reports)/bulk_restore-pycoverage-html
 	@echo "HTML code coverage report was generated in $(test_reports)/bulk_restore-pycoverage-html"
@@ -60,4 +61,12 @@ lint:
 
 
 format:
-	ruff check --fix
+	ruff format
+
+
+format-check:
+	ruff format --check
+
+
+mypy:
+	mypy code

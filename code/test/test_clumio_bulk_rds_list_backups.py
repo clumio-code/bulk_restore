@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import unittest
 
-import clumio_bulk_s3_restore
+import clumio_bulk_rds_list_backups
 
 
 class TestImportable(unittest.TestCase):
     def test_lambda_handler_exists(self):
-        self.assertTrue(hasattr(clumio_bulk_s3_restore, 'lambda_handler'))
+        self.assertTrue(hasattr(clumio_bulk_rds_list_backups, 'lambda_handler'))

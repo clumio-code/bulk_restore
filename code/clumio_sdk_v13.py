@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 
-import requests
 from datetime import datetime, timedelta, timezone
 import boto3
 import time
 import json
 import random
 import string
-from botocore.exceptions import ClientError
 import re
 import urllib.parse
+
+import requests
+from botocore.exceptions import ClientError
+
+
 
 api_dict = {
     "001": {"name": "EC2BackupList", "api": "backups/aws/ec2-instances",
