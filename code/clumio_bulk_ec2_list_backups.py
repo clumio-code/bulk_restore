@@ -102,7 +102,7 @@ def lambda_handler(events, context):
 
     # Filter the result based on the tags.
     backup_records = common.filter_backup_records_by_tags(
-        backup_records, search_tag_key, search_tag_value
+        backup_records, search_tag_key, search_tag_value, "source_instance_tags"
     )
 
     if len(backup_records) == 0:

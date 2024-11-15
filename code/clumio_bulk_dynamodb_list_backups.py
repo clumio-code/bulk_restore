@@ -15,12 +15,53 @@
 from botocore.exceptions import ClientError
 import boto3
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+from clumioapi import configuration, clumioapi_client
+import common
 
+def backup_record_obj_to_dict(backup) -> dict:
+    """Convert backup record object to dictionary."""
+    gsi_list = []
+    if backup.global_secondary_indexes:
+        for gsi in backup.global_secondary_indexes:
+            gsi_dict = {
+                "index_name": gsi.index_name,
+                "key_schema": [schema.__dict__ for schema in gsi.key_schema],
+                "projection": gsi.projection.__dict__,
+                "provisioned_throughput": common.to_dict_or_none(gsi.provisioned_throughput),
+            }
+            gsi_list.append(gsi_dict)
+
+    lsi_list = []
+    if backup.local_secondary_indexes:
+        for lsi in backup.local_secondary_indexes:
+            lsi_dict = {
+                "index_name": lsi.index_name,
+                "key_schema": [schema.__dict__ for schema in lsi.key_schema],
+                "projection": lsi.projection.__dict__,
+            }
+            lsi_list.append(lsi_dict)
+
+    return {
+        "table_name": backup.table_name,
+        "backup_record": {
+            "source_backup_id": backup.p_id,
+            "source_table_name": backup.table_name,
+            "source_ddn_tags": [tag.__dict__ for tag in backup.tags],
+            "source_sse_specification": common.to_dict_or_none(backup.sse_specification),
+            "source_provisioned_throughput": common.to_dict_or_none(backup.provisioned_throughput),
+            "source_billing_mode": backup.billing_mode,
+            "source_table_class": backup.table_class,
+            "source_expire_time": backup.expiration_timestamp,
+            "source_global_table_version": backup.global_table_version,
+            "source_global_secondary_indexes": gsi_list or None,
+            "source_local_secondary_indexes": lsi_list or None,
+            "source_replicas": None
+        }
+    }
 
 def lambda_handler(events, context):
     bear = events.get('bear', None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account = events.get('source_account', None)
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
@@ -49,38 +90,39 @@ def lambda_handler(events, context):
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
-        debug = int(debug_input)
     except ValueError as e:
-        error = f"invalid task id: {e}"
+        error = f"invalid start and/or end day offset: {e}"
         return {"status": 401, "records": [], "msg": f"failed {error}"}
 
-    # Initiate API and configure
-    ddn_backup_list_api = DynamoDBBackupList()
-    base_url = events.get('base_url', None)
-    if base_url:
-        ddn_backup_list_api.set_url_prefix(base_url)
-    ddn_backup_list_api.set_token(bear)
-    ddn_backup_list_api.set_debug(debug)
+    # Initiate the Clumio API client.
+    if 'https' in base_url:
+        base_url = base_url.split('/')[2]
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
 
-    # Set search parameters
-    ddn_backup_list_api.set_page_size(100)
-    if search_tag_key and search_tag_value:
-        ddn_backup_list_api.ddn_search_by_tag(search_tag_key, search_tag_value)
-    if search_direction == 'forwards':
-        ddn_backup_list_api.set_search_forwards_from_offset(end_search_day_offset)
-    elif search_direction == 'backwards':
-        ddn_backup_list_api.set_search_backwards_from_offset(start_search_day_offset, end_search_day_offset)
+    # Retrieve the list of backup records.
+    sort, ts_filter = common.get_sort_and_ts_filter(
+        search_direction, start_search_day_offset, end_search_day_offset
+    )
+    raw_backup_records = common.get_total_list(
+        function=client.backup_aws_dynamodb_tables_v1.list_backup_aws_dynamodb_tables,
+        api_filter=json.dumps(ts_filter),
+        sort=sort,
+    )
 
-    ddn_backup_list_api.set_aws_account_id(source_account)
-    ddn_backup_list_api.set_aws_region(source_region)
+    # Filter the result based on the source_account and source region.
+    backup_records = []
+    for backup in raw_backup_records:
+        if backup.account_native_id == source_account and backup.aws_region == source_region:
+            backup_record = backup_record_obj_to_dict(backup)
+            backup_records.append(backup_record)
 
-    # Run search
-    ddn_backup_list_api.run_all()
+    # Filter the result based on the tags.
+    backup_records = common.filter_backup_records_by_tags(
+        backup_records, search_tag_key, search_tag_value, 'source_ddn_tags'
+    )
 
-    # Parse and return results
-    result_dict = ddn_backup_list_api.ddn_parse_results("basic")
-    ddn_backup_records = result_dict.get("records", [])
-    if len(ddn_backup_records) == 0:
+    if len(backup_records) == 0:
         return {"status": 207, "records": [], "target": target, "msg": "empty set"}
     else:
-        return {"status": 200, "records": ddn_backup_records, "target": target, "msg": "completed"}
+        return {"status": 200, "records": backup_records, "target": target, "msg": "completed"}
