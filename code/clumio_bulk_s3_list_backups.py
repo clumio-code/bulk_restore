@@ -84,7 +84,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
     )
     ts_filter['protection_group_id'] = {'$eq': pg_id}
     response = client.backup_protection_groups_v1.list_backup_protection_groups(
-        filter=json.loads(ts_filter), sort=sort
+        filter=json.dumps(ts_filter), sort=sort
     )
     if not response.total_count:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}

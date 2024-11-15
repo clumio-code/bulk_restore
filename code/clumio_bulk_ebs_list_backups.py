@@ -70,7 +70,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     )
     raw_backup_records = common.get_total_list(
         function=client.backup_aws_ebs_volumes_v2.list_backup_aws_ebs_volumes,
-        api_filter=json.loads(ts_filter),
+        api_filter=json.dumps(ts_filter),
         sort=sort,
     )
 
