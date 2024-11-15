@@ -13,10 +13,6 @@ Parameters:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
     Default: clumio_bulk_restore.zip
-  LayerZipObject:
-    Description: path to the layer zip file in LambdaCodeLocationBucket
-    Type: String
-    Default: clumio_bulk_restore_layer.zip
 Resources:
   ClumioToken:
     Type: 'AWS::SecretsManager::Secret'
@@ -195,15 +191,6 @@ Resources:
       Description: clumio_bulk_retrieve_ebs_restore_task
       TracingConfig:
         Mode: Active
-  ClumioSDKLayer:
-    Type: "AWS::Lambda::LayerVersion"
-    Properties:
-      CompatibleRuntimes:
-        - python3.12
-      Content:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LayerZipObject
-      LayerName: "clumio_bulk_layer"
   ListPG:
     Type: AWS::Lambda::Function
     Properties:
