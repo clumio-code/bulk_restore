@@ -66,7 +66,6 @@ def lambda_handler(events, context):
     r = ddn_backup_list_api.set_page_size(100)
     if search_tag_key and search_tag_value:
         ddn_backup_list_api.ddn_search_by_tag(search_tag_key, search_tag_value)
-    else:
     if search_direction == 'forwards':
         ddn_backup_list_api.set_search_forwards_from_offset(end_search_day_offset)
     elif search_direction == 'backwards':
