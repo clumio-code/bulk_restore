@@ -63,7 +63,7 @@ def lambda_handler(events, context):
     ddn_backup_list_api.set_debug(debug)
 
     # Set search parameters
-    r = ddn_backup_list_api.set_page_size(100)
+    ddn_backup_list_api.set_page_size(100)
     if search_tag_key and search_tag_value:
         ddn_backup_list_api.ddn_search_by_tag(search_tag_key, search_tag_value)
     if search_direction == 'forwards':
@@ -75,7 +75,7 @@ def lambda_handler(events, context):
     ddn_backup_list_api.set_aws_region(source_region)
 
     # Run search
-    r = ddn_backup_list_api.run_all()
+    ddn_backup_list_api.run_all()
 
     # Parse and return results
     result_dict = ddn_backup_list_api.ddn_parse_results("basic")

@@ -30,7 +30,7 @@ def lambda_handler(events, context):
     target_region = target.get('target_region', None)
     target_az = target.get("target_az", None)
     target_kms_key_native_id = target.get("target_kms_key_native_id", None)
-    target_iops = target.get("target_iops", None)
+    target_iops = target.get("target_iops", None) or None
     target_volume_type = target.get("target_volume_type", None)
 
     inputs = {
