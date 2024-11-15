@@ -15,12 +15,40 @@
 from botocore.exceptions import ClientError
 import boto3
 import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask, RDSBackupList
+from clumioapi import configuration, clumioapi_client
+import common
 
+
+def backup_record_obj_to_dict(backup) -> dict:
+    """Convert backup record object to dictionary."""
+    instances_dict = []
+    instance_class = ""
+    publicly_available = True
+    for instance in backup.instances:
+        instance_dict = instance.__dict__
+        instance_class = instance_dict.pop('p_class')
+        instance_dict['class'] = instance_class
+        publicly_available = publicly_available and instance_dict['is_publicly_accessible']
+        instances_dict.append(instance_dict)
+    return {
+        "resource_id": backup.database_native_id,
+        "backup_record": {
+            "source_backup_id": backup.p_id,
+            "source_resource_id": backup.database_native_id,
+            "source_resource_tags": [tag.__dict__ for tag in backup.tags],
+            "source_encrypted_flag": backup.kms_key_native_id == '',
+            "source_instances": instances_dict,
+            "source_instance_class": instance_class,
+            "source_is_publicly_accessible": publicly_available,
+            "source_subnet_group_name": backup.subnet_group_name,
+            "source_kms": backup.kms_key_native_id,
+            "source_expire_time": backup.expiration_timestamp,
+        }
+    }
 
 def lambda_handler(events, context):
     bear = events.get('bear', None)
+    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account = events.get('source_account', None)
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
@@ -40,7 +68,7 @@ def lambda_handler(events, context):
         error = f"invalid task id: {e}"
         return {"status": 401, "records": [], "msg": f"failed {error}"}
 
-    # If clumio bearer token is not passed as an input read it from the AWS secret
+        # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
         bearer_secret = "clumio/token/bulk_restore"
         secretsmanager = boto3.client('secretsmanager')
@@ -50,33 +78,46 @@ def lambda_handler(events, context):
             bear = secret_dict.get('token', None)
         except ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Describe Volume failed - {error}"
+            error_msg = f"Read secret failed - {error}"
             return {"status": 411, "msg": error_msg}
 
-    #Initiate List RDS Backups
-    rds_backup_list_api = RDSBackupList()
-    base_url = events.get('base_url', None)
-    if base_url:
-        rds_backup_list_api.set_url_prefix(base_url)
-    rds_backup_list_api.set_token(bear)
-    rds_backup_list_api.set_debug(debug)
+    # Validate inputs
+    try:
+        start_search_day_offset = int(start_search_day_offset_input)
+        end_search_day_offset = int(end_search_day_offset_input)
+    except ValueError as e:
+        error = f"invalid start and/or end day offset: {e}"
+        return {"status": 401, "records": [], "msg": f"failed {error}"}
 
-    rds_backup_list_api.set_aws_account_id(source_account)
-    rds_backup_list_api.set_aws_region(source_region)
-    # Set search parameters
-    if search_tag_key and search_tag_value:
-        rds_backup_list_api.rds_search_by_tag(search_tag_key, search_tag_value)
-    if search_direction == 'forwards':
-        rds_backup_list_api.set_search_forwards_from_offset(end_search_day_offset)
-    elif search_direction == 'backwards':
-        rds_backup_list_api.set_search_backwards_from_offset(start_search_day_offset, end_search_day_offset)
+    # Initiate the Clumio API client.
+    if 'https' in base_url:
+        base_url = base_url.split('/')[2]
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
 
-    # Run search
-    rds_backup_list_api.run_all()
+    # Retrieve the list of backup records.
+    sort, ts_filter = common.get_sort_and_ts_filter(
+        search_direction, start_search_day_offset, end_search_day_offset
+    )
+    raw_backup_records = common.get_total_list(
+        function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
+        api_filter=json.dumps(ts_filter),
+        sort=sort,
+    )
 
-    result_dict = rds_backup_list_api.rds_parse_results("restore")
-    rds_backup_records = result_dict.get("records", [])
-    if len(rds_backup_records) == 0:
-        return {"status": 207, "records": [],"target": target, "msg": "empty set"}
+    # Filter the result based on the source_account and source region.
+    backup_records = []
+    for backup in raw_backup_records:
+        if backup.account_native_id == source_account and backup.aws_region == source_region:
+            backup_record = backup_record_obj_to_dict(backup)
+            backup_records.append(backup_record)
+
+    # Filter the result based on the tags.
+    backup_records = common.filter_backup_records_by_tags(
+        backup_records, search_tag_key, search_tag_value
+    )
+
+    if len(backup_records) == 0:
+        return {"status": 207, "records": [], "target": target, "msg": "empty set"}
     else:
-        return {"status": 200, "records": rds_backup_records,"target": target, "msg": "completed"}
+        return {"status": 200, "records": backup_records, "target": target, "msg": "completed"}
