@@ -23,37 +23,28 @@ on:
     branches: [ main ]
   workflow_dispatch:
   # Allow manual trigger for debugging the workflow.
-env:
-  # Python version to run all the checks.
-  PY_FULL_CHECKS: '3.12'
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.12' ]
       fail-fast: false
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: CI
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
       - name: Install
         run: make install-dev
-      # Do not run the linter and other checks yet.
-#      - name: lint
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make lint
-#      - name: mypy
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make mypy
-#      - name: format
-#        if: matrix.python-version == env.PY_FULL_CHECKS && matrix.os == 'ubuntu-latest'
-#        run: make format
+      - name: lint
+        run: make lint
+      - name: mypy
+        # Run mypy but do not fail CI since there are hundreds of issues to fix.
+        run: make mypy || true
+      - name: Format check
+        run: make format-check
       - name: Unit Tests
         run: make test

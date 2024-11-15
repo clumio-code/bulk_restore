@@ -12,65 +12,68 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from botocore.exceptions import ClientError
+"""Lambda function to bulk restore DynamoDB."""
+
+from __future__ import annotations
+
 import random
 import string
+from typing import TYPE_CHECKING, Any
+
 import boto3
-import json
-from clumio_sdk_v13 import DynamoDBBackupList, RestoreDDN, ClumioConnectAccount, AWSOrgAccount, ListEC2Instance, \
-    EnvironmentId, RestoreEC2, RestoreRDS, EC2BackupList, EBSBackupList, RestoreEBS, OnDemandBackupEC2, RetrieveTask
+import botocore.exceptions
+from clumio_sdk_v13 import RestoreDDN
+
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
 
-def lambda_handler(events, context):
+def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911
+    """Handle the lambda function to bulk restore DynamoDB."""
     bear = events.get('bear', None)
     debug_input = events.get('debug', None)
-    record = events.get("record", {})
-    target_region = events.get('target',{}).get('target_region', None)
-    target_account = events.get('target',{}).get('target_account', None)
-    change_set_name = events.get('target',{}).get("change_set_name", None)
+    record = events.get('record', {})
+    target_region = events.get('target', {}).get('target_region', None)
+    target_account = events.get('target', {}).get('target_account', None)
+    change_set_name = events.get('target', {}).get('change_set_name', None)
 
     inputs = {
         'resource_type': 'DynamoDB',
         'run_token': None,
         'task': None,
         'source_backup_id': None,
-        'source_table_name': None
+        'source_table_name': None,
     }
 
-    if record:
-        source_backup_id = record.get("backup_record", {}).get('source_backup_id', None)
-        source_table_name = record.get('table_name', None)
-    else:
-        error = f"invalid backup record {record}"
-        return {"status": 402, "msg": f"failed {error}",
-                "inputs": inputs}
+    if not record:
+        return {'status': 402, 'msg': f'failed invalid backup record {record}', 'inputs': inputs}
+
+    source_backup_id = record.get('backup_record', {}).get('source_backup_id', None)
+    source_table_name = record.get('table_name', None)
 
     # Validate inputs
     try:
         debug = int(debug_input)
-    except ValueError as e:
-        error = f"invalid debug: {e}"
-        return {"status": 401, "task": None, "msg": f"failed {error}",
-                "inputs": inputs}
+    except ValueError as error:
+        msg = f'failed invalid debug: {error}'
+        return {'status': 401, 'task': None, 'msg': msg, 'inputs': inputs}
 
-    if len(record) == 0:
-        return {"status": 205, "msg": "no records",
-                "inputs": inputs}
+    if not record:
+        return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
-        bearer_secret = "clumio/token/bulk_restore"
+        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
         secretsmanager = boto3.client('secretsmanager')
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
             # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
-        except ClientError as e:
+        except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Describe Volume failed - {error}"
-            payload = error_msg
-            return {"status": 411, "msg": error_msg}
+            error_msg = f'Describe Volume failed - {error}'
+            return {'status': 411, 'msg': error_msg}
 
     ddn_restore_api = RestoreDDN()
     base_url = events.get('base_url', None)
@@ -78,42 +81,38 @@ def lambda_handler(events, context):
         ddn_restore_api.set_url_prefix(base_url)
     ddn_restore_api.set_token(bear)
     ddn_restore_api.set_debug(99)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))
+    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
     target = {
-        "account": target_account,
-        "region": target_region,
-        "table_name": f"-{change_set_name}",
+        'account': target_account,
+        'region': target_region,
+        'table_name': f'-{change_set_name}',
     }
 
     result_target = ddn_restore_api.set_target_for_ddn_restore(target)
     if not result_target:
         error_msgs = ddn_restore_api.get_error_msg()
-        msgs_string = ":".join(error_msgs)
-        return {"status": 404, "msg": msgs_string,
-                "inputs": inputs}
-    print(f"target set status {result_target}")
+        return {'status': 404, 'msg': ':'.join(error_msgs), 'inputs': inputs}
+
+    print(f'target set status {result_target}')
     # Run restore
     ddn_restore_api.save_restore_task()
-    [results, msg] = ddn_restore_api.ddn_restore_from_record([record])
+    results, msg = ddn_restore_api.ddn_restore_from_record([record])
 
-    if results:
-        # Get a list of tasks for all of the restores.
-        task_list = ddn_restore_api.get_restore_task_list()
-        if debug > 5: print(task_list)
-        task = task_list[0].get("task", None)
-        inputs = {
-            'resource_type': 'DynamoDB',
-            'run_token': run_token,
-            'task': task,
-            'source_backup_id': source_backup_id,
-            'source_table_name': source_table_name
-        }
-        if len(task_list) > 0:
-            return {"status": 200, "msg": "completed",
-                    "inputs": inputs}
-        else:
-            return {"status": 207, "msg": "no restores",
-                    "inputs": inputs}
-    else:
-        return {"status": 403, "msg": msg,
-                "inputs": inputs}
+    if not results:
+        return {'status': 403, 'msg': msg, 'inputs': inputs}
+
+    # Get a list of tasks for all of the restores.
+    task_list = ddn_restore_api.get_restore_task_list()
+    if debug > 5:  # noqa: PLR2004
+        print(task_list)
+    task = task_list[0].get('task', None)
+    inputs = {
+        'resource_type': 'DynamoDB',
+        'run_token': run_token,
+        'task': task,
+        'source_backup_id': source_backup_id,
+        'source_table_name': source_table_name,
+    }
+    if task_list:
+        return {'status': 200, 'msg': 'completed', 'inputs': inputs}
+    return {'status': 207, 'msg': 'no restores', 'inputs': inputs}
