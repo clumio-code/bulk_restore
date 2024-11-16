@@ -25,20 +25,21 @@ from clumio_sdk_v13 import EC2BackupList
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 backup list."""
-    bear = events.get('bear', None)
-    source_account = events.get('source_account', None)
-    source_region = events.get('source_region', None)
-    search_tag_key = events.get('search_tag_key', None)
-    search_tag_value = events.get('search_tag_value', None)
-    search_direction = events.get('search_direction', None)
-    start_search_day_offset_input = events.get('start_search_day_offset', 0)
-    end_search_day_offset_input = events.get('end_search_day_offset', 10)
-    target = events.get('target', {})
-    debug_input = events.get('debug', 0)
+    bear: str | None = events.get('bear', None)
+    source_account: str | None = events.get('source_account', None)
+    source_region: str | None = events.get('source_region', None)
+    search_tag_key: str | None = events.get('search_tag_key', None)
+    search_tag_value: str | None = events.get('search_tag_value', None)
+    search_direction: str | None = events.get('search_direction', None)
+    start_search_day_offset_input: int = events.get('start_search_day_offset', 0)
+    end_search_day_offset_input: int = events.get('end_search_day_offset', 10)
+    target: int = events.get('target', {})
+    debug_input: str | int = events.get('debug', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -59,7 +60,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
         debug = int(debug_input)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         error = f'invalid task id: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 

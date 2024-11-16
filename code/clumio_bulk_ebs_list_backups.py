@@ -24,19 +24,23 @@ import botocore.exceptions
 import common
 from clumioapi import clumioapi_client, configuration
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to list EBS backups."""
-    bear = events.get('bear', None)
-    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
-    source_account = events.get('source_account', None)
-    source_region = events.get('source_region', None)
-    search_tag_key = events.get('search_tag_key', None)
-    search_tag_value = events.get('search_tag_value', None)
-    search_direction = events.get('search_direction', None)
-    start_search_day_offset_input = events.get('start_search_day_offset', 1)
-    end_search_day_offset_input = events.get('end_search_day_offset', 0)
-    target = events.get('target', {})
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    source_account: str | None = events.get('source_account', None)
+    source_region: str | None = events.get('source_region', None)
+    search_tag_key: str | None = events.get('search_tag_key', None)
+    search_tag_value: str | None = events.get('search_tag_value', None)
+    search_direction: str | None = events.get('search_direction', None)
+    start_search_day_offset_input: str | int = events.get('start_search_day_offset', 1)
+    end_search_day_offset_input: str | int = events.get('end_search_day_offset', 0)
+    target: dict = events.get('target', {})
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -55,13 +59,12 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         error = f'invalid input: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
+    base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 

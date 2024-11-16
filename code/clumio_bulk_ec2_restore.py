@@ -27,9 +27,10 @@ from clumio_sdk_v13 import RestoreEC2
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
     """Handle the lambda function to bulk restore EC2."""
     record = events.get('record', {})
     bear = events.get('bear', None)
