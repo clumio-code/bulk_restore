@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from clumioapi.models.ec2_backup import EC2Backup
 
+
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     """Convert backup record object to dictionary."""
     ebs_mappings = []
@@ -49,9 +50,10 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
             'source_instance_tags': [tag.__dict__ for tag in backup.tags],
             'SourceVPCID': backup.vpc_native_id,
             'source_az': backup.aws_az,
-            'source_expire_time': backup.expiration_timestamp
-        }
+            'source_expire_time': backup.expiration_timestamp,
+        },
     }
+
 
 def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 backup list."""
@@ -61,7 +63,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
     search_tag_value = events.get('search_tag_value', None)
-    target = events.get('target',{})
+    target = events.get('target', {})
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
     end_search_day_offset_input = target.get('end_search_day_offset', 10)

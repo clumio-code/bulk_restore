@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from clumioapi.models.dynamo_db_table_backup_with_e_tag import DynamoDBTableBackupWithETag
 
+
 def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
     """Convert backup record object to dictionary."""
     gsi_list = []
@@ -65,9 +66,10 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
             'source_global_table_version': backup.global_table_version,
             'source_global_secondary_indexes': gsi_list or None,
             'source_local_secondary_indexes': lsi_list or None,
-            'source_replicas': None
-        }
+            'source_replicas': None,
+        },
     }
+
 
 def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
     """Handle the lambda function to list DynamoDB backups."""

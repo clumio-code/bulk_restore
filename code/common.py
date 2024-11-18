@@ -52,6 +52,7 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
         start += 1
     return total_list
 
+
 def filter_backup_records_by_tags(
     backup_records: list[dict], search_tag_key: str, search_tag_value: str, tag_field: str
 ) -> list[dict]:
@@ -61,12 +62,11 @@ def filter_backup_records_by_tags(
         return backup_records
     tags_filtered_backups = []
     for backup in backup_records:
-        tags = {
-            tag['key']: tag['value'] for tag in backup['backup_record'][tag_field]
-        }
+        tags = {tag['key']: tag['value'] for tag in backup['backup_record'][tag_field]}
         if tags.get(search_tag_key, None) == search_tag_value:
             tags_filtered_backups.append(backup)
     return tags_filtered_backups
+
 
 def to_dict_or_none(obj: Any) -> dict | None:
     """Return dict version of an object if it exists, or None otherwise."""

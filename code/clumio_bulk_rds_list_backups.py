@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     """Convert backup record object to dictionary."""
     instances_dict = []
-    instance_class = ""
+    instance_class = ''
     publicly_available = True
     for instance in backup.instances:
         instance_dict = instance.__dict__
@@ -53,8 +53,9 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
             'source_subnet_group_name': backup.subnet_group_name,
             'source_kms': backup.kms_key_native_id,
             'source_expire_time': backup.expiration_timestamp,
-        }
+        },
     }
+
 
 def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the RDS backup list."""
