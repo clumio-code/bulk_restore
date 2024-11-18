@@ -59,16 +59,7 @@ def lambda_handler(events, context):
     end_search_day_offset_input = target.get('end_search_day_offset', 10)
     debug_input = events.get('debug', 0)
 
-    # Validate inputs
-    try:
-        start_search_day_offset = int(start_search_day_offset_input)
-        end_search_day_offset = int(end_search_day_offset_input)
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f"invalid task id: {e}"
-        return {"status": 401, "records": [], "msg": f"failed {error}"}
-
-        # If clumio bearer token is not passed as an input read it from the AWS secret
+    # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
         bearer_secret = "clumio/token/bulk_restore"
         secretsmanager = boto3.client('secretsmanager')

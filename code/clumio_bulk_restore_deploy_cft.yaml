@@ -202,8 +202,6 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Layers:
-        - !Ref ClumioSDKLayer
       Description: clumio_bulk_s3_list_backups
       TracingConfig:
         Mode: Active
@@ -218,8 +216,6 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Layers:
-        - !Ref ClumioSDKLayer
       Description: clumio_bulk_s3_restore
       TracingConfig:
         Mode: Active
@@ -234,8 +230,6 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Layers:
-        - !Ref ClumioSDKLayer
       Description: clumio_bulk_retrieve_s3_restore_task
       TracingConfig:
         Mode: Active
