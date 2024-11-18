@@ -25,16 +25,17 @@ from clumio_sdk_v13 import RetrieveTask
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 restore task."""
-    bear = events.get('bear', None)
-    task = events.get('inputs', {}).get('task', None)
-    source_backup_id = events.get('inputs', {}).get('source_backup_id', None)
-    source_instance_id = events.get('inputs', {}).get('source_instance_id', None)
-    debug_input = events.get('debug', None)
-    run_token = events.get('inputs', {}).get('run_token', None)
+    bear: str | None = events.get('bear', None)
+    task: str | None = events.get('inputs', {}).get('task', None)
+    source_backup_id: str | None = events.get('inputs', {}).get('source_backup_id', None)
+    source_instance_id: str | None = events.get('inputs', {}).get('source_instance_id', None)
+    debug_input: int | str = events.get('debug', 0)
+    run_token: str | None = events.get('inputs', {}).get('run_token', None)
     inputs = {
         'resource_type': 'EC2',
         'run_token': run_token,
@@ -45,13 +46,14 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
 
     try:
         debug = int(debug_input)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         error = f'invalid debug: {e}'
         return {'status': 401, 'msg': error, 'inputs': inputs}
-    if task:
-        task_id = task
-    else:
+
+    if not task:
         return {'status': 402, 'msg': 'no task id', 'inputs': inputs}
+
+    task_id = task
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -84,9 +86,8 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
         'source_backup_id': source_backup_id,
         'source_instance_id': source_instance_id,
     }
-    if complete_flag and not status == 'completed':
+    if complete_flag:
+        if status == 'completed':
+            return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
         return {'status': 403, 'msg': f'task failed {status}', 'inputs': inputs}
-    elif complete_flag and status == 'completed':
-        return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
-    else:
-        return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}
+    return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}

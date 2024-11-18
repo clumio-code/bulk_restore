@@ -26,6 +26,7 @@ from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
     from clumioapi.models.rds_database_backup import RdsDatabaseBackup
 
 
@@ -57,7 +58,7 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     }
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the RDS backup list."""
     bear = events.get('bear', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)

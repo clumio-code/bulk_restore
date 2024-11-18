@@ -22,13 +22,15 @@ import string
 from typing import TYPE_CHECKING, Any
 
 import boto3
+import botocore.exceptions
 from clumio_sdk_v13 import RestoreRDS
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915, PLR0911
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915, PLR0911
     """Handle the lambda function to bulk restore RDS."""
     print(f'clumio_rds_restore events: {events}')
     record = events.get('record', {})

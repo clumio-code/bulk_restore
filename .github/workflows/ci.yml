@@ -42,8 +42,7 @@ jobs:
       - name: lint
         run: make lint
       - name: mypy
-        # Run mypy but do not fail CI since there are hundreds of issues to fix.
-        run: make mypy || true
+        run: make mypy
       - name: Format check
         run: make format-check
       - name: Unit Tests
