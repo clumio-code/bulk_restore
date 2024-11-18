@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from botocore.exceptions import ClientError
-import boto3
+"""Lambda function to retrieve the EC2 backup list."""
+
+from __future__ import annotations
+
 import json
+from typing import TYPE_CHECKING, Any
+
+import boto3
+import botocore.exceptions
 from clumioapi import configuration, clumioapi_client
 import common
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
 def backup_record_obj_to_dict(backup) -> dict:
     """Convert backup record object to dictionary."""
@@ -29,22 +37,23 @@ def backup_record_obj_to_dict(backup) -> dict:
         ebs_mapping['tags'] = [tag.__dict__ for tag in ebs_mapping['tags']]
         ebs_mappings.append(ebs_mapping)
     return {
-        "instance_id": backup.instance_id,
-        "backup_record": {
-            "source_backup_id": backup.p_id,
-            "SourceAmiId": backup.ami.ami_native_id,
-            "source_iam_instance_profile_name": backup.iam_instance_profile,
-            "SourceKeyPairName": backup.key_pair_name,
-            "source_network_interface_list": [ni.__dict__ for ni in backup.network_interfaces],
-            "source_ebs_storage_list": ebs_mappings,
-            "source_instance_tags": [tag.__dict__ for tag in backup.tags],
-            "SourceVPCID": backup.vpc_native_id,
-            "source_az": backup.aws_az,
-            "source_expire_time": backup.expiration_timestamp
+        'instance_id': backup.instance_id,
+        'backup_record': {
+            'source_backup_id': backup.p_id,
+            'SourceAmiId': backup.ami.ami_native_id,
+            'source_iam_instance_profile_name': backup.iam_instance_profile,
+            'SourceKeyPairName': backup.key_pair_name,
+            'source_network_interface_list': [ni.__dict__ for ni in backup.network_interfaces],
+            'source_ebs_storage_list': ebs_mappings,
+            'source_instance_tags': [tag.__dict__ for tag in backup.tags],
+            'SourceVPCID': backup.vpc_native_id,
+            'source_az': backup.aws_az,
+            'source_expire_time': backup.expiration_timestamp
         }
     }
 
-def lambda_handler(events, context):
+def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+    """Handle the lambda function to retrieve the EC2 backup list."""
     bear = events.get('bear', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account = events.get('source_account', None)
@@ -58,24 +67,24 @@ def lambda_handler(events, context):
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
-        bearer_secret = "clumio/token/bulk_restore"
+        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
         secretsmanager = boto3.client('secretsmanager')
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
             bear = secret_dict.get('token', None)
-        except ClientError as e:
+        except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Read secret failed - {error}"
-            return {"status": 411, "msg": error_msg}
+            error_msg = f'Read secret failed - {error}'
+            return {'status': 411, 'msg': error_msg}
 
     # Validate inputs
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
     except ValueError as e:
-        error = f"invalid start and/or end day offset: {e}"
-        return {"status": 401, "records": [], "msg": f"failed {error}"}
+        error = f'invalid start/end search day offset: {e}'
+        return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate the Clumio API client.
     if 'https' in base_url:
@@ -102,10 +111,9 @@ def lambda_handler(events, context):
 
     # Filter the result based on the tags.
     backup_records = common.filter_backup_records_by_tags(
-        backup_records, search_tag_key, search_tag_value, "source_instance_tags"
+        backup_records, search_tag_key, search_tag_value, 'source_instance_tags'
     )
 
-    if len(backup_records) == 0:
-        return {"status": 207, "records": [], "target": target, "msg": "empty set"}
-    else:
-        return {"status": 200, "records": backup_records, "target": target, "msg": "completed"}
+    if not backup_records:
+        return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+    return {'status': 200, 'records': backup_records, 'target': target, 'msg': 'completed'}

@@ -12,14 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from botocore.exceptions import ClientError
-import boto3
+"""Lambda function to list EBS backups."""
+
+from __future__ import annotations
+
 import json
-from clumioapi import configuration, clumioapi_client
+from typing import TYPE_CHECKING, Any
+
+import boto3
+import botocore.exceptions
 import common
+from clumioapi import clumioapi_client, configuration
 
 
-def lambda_handler(events, context):
+def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+    """Handle the lambda function to list EBS backups."""
     bear = events.get('bear', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account = events.get('source_account', None)
@@ -33,24 +40,24 @@ def lambda_handler(events, context):
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
-        bearer_secret = "clumio/token/bulk_restore"
+        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
         secretsmanager = boto3.client('secretsmanager')
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
             bear = secret_dict.get('token', None)
-        except ClientError as e:
+        except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f"Read secret failed - {error}"
-            return {"status": 411, "msg": error_msg}
+            error_msg = f'Read secret failed - {error}'
+            return {'status': 411, 'msg': error_msg}
 
     # Validate inputs
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
     except ValueError as e:
-        error = f"invalid input: {e}"
-        return {"status": 401, "records": [], "msg": f"failed {error}"}
+        error = f'invalid input: {e}'
+        return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate the Clumio API client.
     if 'https' in base_url:
@@ -72,16 +79,16 @@ def lambda_handler(events, context):
     for backup in raw_backup_records:
         if backup.account_native_id == source_account and backup.aws_region == source_region:
             backup_record = {
-                "volume_id": backup.volume_native_id,
-                "backup_record": {
-                    "source_backup_id": backup.p_id,
-                    "source_volume_id": backup.volume_native_id,
-                    "source_volume_tags": [tag.__dict__ for tag in backup.tags],
-                    "source_encrypted_flag": backup.is_encrypted,
-                    "source_az": backup.aws_az,
-                    "source_kms": backup.kms_key_native_id,
-                    "source_expire_time": backup.expiration_timestamp
-                }
+                'volume_id': backup.volume_native_id,
+                'backup_record': {
+                    'source_backup_id': backup.p_id,
+                    'source_volume_id': backup.volume_native_id,
+                    'source_volume_tags': [tag.__dict__ for tag in backup.tags],
+                    'source_encrypted_flag': backup.is_encrypted,
+                    'source_az': backup.aws_az,
+                    'source_kms': backup.kms_key_native_id,
+                    'source_expire_time': backup.expiration_timestamp,
+                },
             }
             backup_records.append(backup_record)
 
@@ -90,13 +97,12 @@ def lambda_handler(events, context):
         tags_filtered_backups = []
         for backup in backup_records:
             tags = {
-                tag['key']:tag['value'] for tag in backup['backup_record']['source_volume_tags']
+                tag['key']: tag['value'] for tag in backup['backup_record']['source_volume_tags']
             }
             if tags.get(search_tag_key, None) == search_tag_value:
                 tags_filtered_backups.append(backup)
         backup_records = tags_filtered_backups
 
-    if len(backup_records) == 0:
-        return {"status": 207, "records": [], "target": target, "msg": "empty set"}
-    else:
-        return {"status": 200, "records": backup_records, "target": target, "msg": "completed"}
+    if not backup_records:
+        return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+    return {'status': 200, 'records': backup_records, 'target': target, 'msg': 'completed'}
