@@ -1,26 +1,26 @@
 {
-	"Version": "2012-10-17",
-	"Statement": [
-		{
-			"Sid": "s3Allow",
-			"Effect": "Allow",
-			"Action": [
-				"s3:*"
-			],
-			"Resource": [
-				"arn:aws:s3:::{zip-file-bucket-name}"
-			]
-		},
-		{
-			"Sid": "lambdaAllow",
-			"Effect": "Allow",
-			"Action": [
-				"states:*",
-				"lambda:*"
-			],
-			"Resource": [
-				"*"
-			]
-		}
-	]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "s3Allow",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::{zip-file-bucket-name}"
+      ]
+    },
+    {
+      "Sid": "lambdaAllow",
+      "Effect": "Allow",
+      "Action": [
+        "states:*",
+        "lambda:*"
+      ],
+      "Resource": [
+        "*"
+      ]
+    }
+  ]
 }

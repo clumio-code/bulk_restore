@@ -26,8 +26,9 @@ import common
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from clumioapi.models.dynamo_db_table_backup_with_e_tag import DynamoDBTableBackupWithETag
 
-def backup_record_obj_to_dict(backup) -> dict:
+def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
     """Convert backup record object to dictionary."""
     gsi_list = []
     if backup.global_secondary_indexes:
@@ -80,7 +81,6 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
     end_search_day_offset_input = target.get('end_search_day_offset', 10)
-    debug_input = events.get('debug', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:

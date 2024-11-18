@@ -26,9 +26,10 @@ import common
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from clumioapi.models.rds_database_backup import RdsDatabaseBackup
 
 
-def backup_record_obj_to_dict(backup) -> dict:
+def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     """Convert backup record object to dictionary."""
     instances_dict = []
     instance_class = ""
@@ -67,13 +68,11 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
     end_search_day_offset_input = target.get('end_search_day_offset', 10)
-    debug_input = events.get('debug', 0)
 
     # Validate inputs
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
-        debug = int(debug_input)
     except ValueError as e:
         error = f'invalid start and/or end day offset: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}

@@ -93,15 +93,9 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
             backup_records.append(backup_record)
 
     # Filter the result based on the tags.
-    if search_tag_key and search_tag_value:
-        tags_filtered_backups = []
-        for backup in backup_records:
-            tags = {
-                tag['key']: tag['value'] for tag in backup['backup_record']['source_volume_tags']
-            }
-            if tags.get(search_tag_key, None) == search_tag_value:
-                tags_filtered_backups.append(backup)
-        backup_records = tags_filtered_backups
+    backup_records = common.filter_backup_records_by_tags(
+        backup_records, search_tag_key, search_tag_value, 'source_volume_tags'
+    )
 
     if not backup_records:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}

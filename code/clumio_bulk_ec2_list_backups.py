@@ -26,8 +26,9 @@ import common
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from clumioapi.models.ec2_backup import EC2Backup
 
-def backup_record_obj_to_dict(backup) -> dict:
+def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     """Convert backup record object to dictionary."""
     ebs_mappings = []
     for ebs_vol in backup.attached_backup_ebs_volumes:

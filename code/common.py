@@ -32,7 +32,7 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function: Callable, api_filter: dict[str, Any], sort: str) -> list:
+def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
     """Get the list of all items.
 
     Args:
@@ -52,7 +52,9 @@ def get_total_list(function: Callable, api_filter: dict[str, Any], sort: str) ->
         start += 1
     return total_list
 
-def filter_backup_records_by_tags(backup_records, search_tag_key, search_tag_value, tag_field):
+def filter_backup_records_by_tags(
+    backup_records: list[dict], search_tag_key: str, search_tag_value: str, tag_field: str
+) -> list[dict]:
     """Filter the list of backup records by tags."""
     # Filter the result based on the tags.
     if not (search_tag_key and search_tag_value):
@@ -66,6 +68,6 @@ def filter_backup_records_by_tags(backup_records, search_tag_key, search_tag_val
             tags_filtered_backups.append(backup)
     return tags_filtered_backups
 
-def to_dict_or_none(obj):
+def to_dict_or_none(obj: Any) -> dict | None:
     """Return dict version of an object if it exists, or None otherwise."""
     return obj.__dict__ if obj else None
