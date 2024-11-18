@@ -20,21 +20,26 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import boto3
+import botocore.exceptions
 import common
 from clumioapi import clumioapi_client, configuration
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EBS restore task."""
-    bear = events.get('bear', None)
-    base_url = events.get('base_url', common.DEFAULT_BASE_URL)
-    inputs = events.get('inputs', {})
-    task = inputs.get('task', None)
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    inputs: dict = events.get('inputs', {})
+    task: str | None = inputs.get('task', None)
 
-    if task:
-        task_id = task
-    else:
+    if not task:
         return {'status': 402, 'msg': 'no task id', 'inputs': inputs}
+
+    task_id = task
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:

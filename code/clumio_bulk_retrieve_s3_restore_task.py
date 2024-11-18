@@ -25,15 +25,16 @@ from clumio_sdk_v13 import RetrieveTask
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the S3 restore task."""
-    bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
-    inputs = events.get('inputs', {})
-    task = inputs.get('task', None)
-    debug = int(events.get('debug', None))
+    bear: str | None = events.get('bear', None)
+    base_url: str | None = events.get('base_url', None)
+    inputs: dict = events.get('inputs', {})
+    task: str | None = inputs.get('task', None)
+    debug: int = int(events.get('debug', 0))
 
     if not bear:
         bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
@@ -47,10 +48,10 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
             error_msg = f'Describe Volume failed - {error}'
             return {'status': 411, 'msg': error_msg}
 
-    if task:
-        task_id = task
-    else:
+    if not task:
         return {'status': 402, 'msg': 'no task id', 'inputs': inputs}
+
+    task_id = task
 
     # Initiate the Clumio API client.
     retrieve_task_api = RetrieveTask()
@@ -60,10 +61,10 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
     retrieve_task_api.set_debug(debug)
 
     # Retrieve the task status.
-    [complete_flag, status, _] = retrieve_task_api.retrieve_task_id(task_id, 'one')
-    if complete_flag and status != 'completed':
+    complete_flag, status, _ = retrieve_task_api.retrieve_task_id(task_id, 'one')
+
+    if complete_flag:
+        if status == 'completed':
+            return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
         return {'status': 403, 'msg': f'task failed {status}', 'inputs': inputs}
-    elif complete_flag and status == 'completed':
-        return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
-    else:
-        return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}
+    return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}

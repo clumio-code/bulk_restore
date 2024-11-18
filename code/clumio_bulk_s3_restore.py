@@ -21,22 +21,24 @@ from typing import TYPE_CHECKING, Any
 
 import boto3
 import botocore.exceptions
+import common
 from clumioapi import clumioapi_client, configuration, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to bulk restore S3."""
-    bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
-    target = events.get('target', {})
-    record = events.get('record', {})
-    target_account = target.get('target_account', None)
-    target_region = target.get('target_region', None)
-    target_bucket = target.get('target_bucket', None)
-    target_prefix = target.get('target_prefix', None)
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    target: dict = events.get('target', {})
+    record: dict = events.get('record', {})
+    target_account: str | None = target.get('target_account', None)
+    target_region: str | None = target.get('target_region', None)
+    target_bucket: str | None = target.get('target_bucket', None)
+    target_prefix: str | None = target.get('target_prefix', None)
 
     if not bear:
         bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
@@ -51,8 +53,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
             return {'status': 411, 'msg': error_msg}
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
+    base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 

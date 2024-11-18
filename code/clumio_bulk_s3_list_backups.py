@@ -16,22 +16,28 @@
 
 from __future__ import annotations
 
-import datetime
 import json
+from typing import TYPE_CHECKING, Any
 
+import boto3
+import botocore.exceptions
 import common
 from clumioapi import clumioapi_client, configuration
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
+
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
     """Handle the lambda function to bulk list S3 backups."""
-    bear = events.get('bear', None)
-    base_url = events.get('base_url', None)
-    start_search_day_offset_input = int(events.get('start_search_day_offset', 0))
-    end_search_day_offset_input = int(events.get('end_search_day_offset', 0))
-    target = events.get('target', {})
-    object_filters = events.get('search_object_filters', {})
-    search_direction = events.get('search_direction', None)
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    start_search_day_offset_input: int = int(events.get('start_search_day_offset', 0))
+    end_search_day_offset_input: int = int(events.get('end_search_day_offset', 0))
+    target: dict = events.get('target', {})
+    object_filters: dict = events.get('search_object_filters', {})
+    search_direction: str | None = events.get('search_direction', None)
 
     if 'latest_version_only' not in object_filters:
         object_filters['latest_version_only'] = True
@@ -50,8 +56,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
             return {'status': 411, 'msg': error_msg}
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
+    base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 
@@ -59,7 +64,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
     search_name = events.get('search_pg_name', None)
     api_filter = '{"name": {"$eq": "' + search_name + '"}}'
     response = client.protection_groups_v1.list_protection_groups(filter=api_filter)
-    if response.total_count == 0:
+    if not response.total_count:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg list'}
     pg_id = response.embedded.items[0].p_id
 
@@ -69,7 +74,7 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
     response = client.protection_groups_s3_assets_v1.list_protection_group_s3_assets(
         filter=api_filter
     )
-    if response.total_count == 0:
+    if not response.total_count:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg s3 assets'}
     if not s3_bucket_names:
         asset_ids = [item.p_id for item in response.embedded.items]

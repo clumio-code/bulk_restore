@@ -20,5 +20,17 @@ import common
 
 
 class TestImportable(unittest.TestCase):
-    def test_get_sort_and_ts_filter(self):
+    def test_get_sort_and_ts_filter(self) -> None:
         self.assertTrue(hasattr(common, 'get_sort_and_ts_filter'))
+
+
+class TestParseBaseUrl(unittest.TestCase):
+    def test_parse_base_url_same(self) -> None:
+        self.assertEqual(
+            'us-west-2.api.clumio.com', common.parse_base_url('us-west-2.api.clumio.com')
+        )
+
+    def parse_base_url_with_https(self) -> None:
+        self.assertEqual(
+            'us-west-2.api.clumio.com', common.parse_base_url('https://us-west-2.api.clumio.com/')
+        )
