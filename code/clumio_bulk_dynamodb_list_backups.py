@@ -26,8 +26,8 @@ from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
-    from common import EventsTypeDef
     from clumioapi.models.dynamo_db_table_backup_with_e_tag import DynamoDBTableBackupWithETag
+    from common import EventsTypeDef
 
 
 def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:

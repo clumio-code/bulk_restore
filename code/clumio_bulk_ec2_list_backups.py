@@ -26,8 +26,8 @@ from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
-    from common import EventsTypeDef
     from clumioapi.models.ec2_backup import EC2Backup
+    from common import EventsTypeDef
 
 
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
@@ -65,7 +65,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
     target: dict = events.get('target', {})
-    search_direction: str | None  = target.get('search_direction', None)
+    search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
 
