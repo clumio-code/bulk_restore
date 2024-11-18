@@ -21,8 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 import boto3
 import botocore.exceptions
-from clumioapi import configuration, clumioapi_client
 import common
+from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
