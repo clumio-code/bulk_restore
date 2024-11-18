@@ -24,8 +24,12 @@ import botocore.exceptions
 import common
 from clumioapi import clumioapi_client, configuration
 
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to list EBS backups."""
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)

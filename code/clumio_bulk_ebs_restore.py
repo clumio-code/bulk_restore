@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 # noqa: PLR0911, PLR0912, PLR0915
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
     """Handle the lambda function to bulk restore EBS."""
     record: dict = events.get('record', {})
     bear: str | None = events.get('bear', None)

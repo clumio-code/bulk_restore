@@ -68,7 +68,10 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
 
 
 def filter_backup_records_by_tags(
-    backup_records: list[dict], search_tag_key: str, search_tag_value: str, tag_field: str
+    backup_records: list[dict],
+    search_tag_key: str | None,
+    search_tag_value: str | None,
+    tag_field: str,
 ) -> list[dict]:
     """Filter the list of backup records by tags."""
     # Filter the result based on the tags.
