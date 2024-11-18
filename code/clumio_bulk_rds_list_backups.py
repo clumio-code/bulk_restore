@@ -25,9 +25,10 @@ from clumio_sdk_v13 import RDSBackupList
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the RDS backup list."""
     bear = events.get('bear', None)
     source_account = events.get('source_account', None)

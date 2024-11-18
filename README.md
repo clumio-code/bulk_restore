@@ -52,10 +52,6 @@ temporarily to deploy the solution; the only other AWS resource needed is an AWS
 Secret which can optionally be used to store your Clumio API token.
 
 ## Files in this source repository
-> [!NOTE]
-> ZIP file clumio_bulk_restore.zip contains all of the code for the lambda
-> functions and the step function.  This zip file must be uploaded to a S3
-> bucket where it can be accessed by the CFT template when you deploy the solution.
 
 > [!NOTE]
 > The files included in this github repository for information purposes only.
@@ -82,16 +78,31 @@ Secret which can optionally be used to store your Clumio API token.
 > The `clumio_bulk_restore_deploy_cft.yaml` file is the CloudFormation (CFT)
 > deployment template. Deploy this CFT template to setup the solution.
 
+## Build
+
+To build you will need a Unix type shell (`bash`, `zsh`, ...), Python 3.12, `make` and `zip`.
+
+```bash
+make build
+```
+
+It will fetch the dependencies and generate the zip file `clumio_bulk_restore.zip`
+under the `build` directory alongside the `clumio_bulk_restore_deploy_cft.yaml`
+CloudFormation template.
+
+The zip file must be uploaded to a S3 bucket where it can be accessed by the
+CloudFormation Template when you deploy the solution.
+
 ## Running the Automation
 > [!TIP]
-> - [ ] Clumio backups must exist (and not be expired) for all resources that are to be restored
+> - [ ] Clumio backups must exist (and not be expired) for all resources that are to be restored.
 > - [ ] Identify a S3 bucket where zip file can be copied.
-> - [ ] Identify an IAM Role that has the capability to run both the lambda functions and the state machine
-> - [ ] Copy ZIP file from the git repository to the S3 bucket
-> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role as parameters to run the CFT YAML file
-> - [ ] Create an input JSON file for the state machine based upon the example JSON and the descriptions below
+> - [ ] Identify an IAM Role that has the ability to run both the lambda functions and the state machine.
+> - [ ] Copy ZIP file from the git repository to the S3 bucket.
+> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role as parameters to run the CFT YAML file.
+> - [ ] Create an input JSON file for the state machine based upon the example JSON and the descriptions below.
 > - [ ] Execute the State machine and pass it your input JSON.
-> - [ ] If the input file has multiple restore sets, the restore automation will start multiple discovery threads.  One for each restore set
+> - [ ] If the input file has multiple restore sets, the restore automation will start multiple discovery threads.  One for each restore set.
 > - [ ] Each Discovery thread will discovery a set of backups to be restored and will start separate restore threads for each backup.
 > - [ ] Each restore thread will log a job status when the restore completes/fails.  This status will include information about the source of the restore.
 > - [ ] The final step/state of the step function will show a combined status for every restore.

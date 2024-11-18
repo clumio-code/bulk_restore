@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import random
 import string
 from typing import TYPE_CHECKING, Any
@@ -26,16 +27,17 @@ from clumio_sdk_v13 import RestoreDDN
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
+    from common import EventsTypeDef
 
 
-def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911
     """Handle the lambda function to bulk restore DynamoDB."""
-    bear = events.get('bear', None)
-    debug_input = events.get('debug', None)
-    record = events.get('record', {})
-    target_region = events.get('target', {}).get('target_region', None)
-    target_account = events.get('target', {}).get('target_account', None)
-    change_set_name = events.get('target', {}).get('change_set_name', None)
+    bear: str | None = events.get('bear', None)
+    debug_input: str | int = events.get('debug', 0)
+    record: dict = events.get('record', {})
+    target_region: str | None = events.get('target', {}).get('target_region', None)
+    target_account: str | None = events.get('target', {}).get('target_account', None)
+    change_set_name: str | None = events.get('target', {}).get('change_set_name', None)
 
     inputs = {
         'resource_type': 'DynamoDB',
@@ -48,13 +50,13 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
     if not record:
         return {'status': 402, 'msg': f'failed invalid backup record {record}', 'inputs': inputs}
 
-    source_backup_id = record.get('backup_record', {}).get('source_backup_id', None)
-    source_table_name = record.get('table_name', None)
+    source_backup_id: str | None = record.get('backup_record', {}).get('source_backup_id', None)
+    source_table_name: str | None = record.get('table_name', None)
 
     # Validate inputs
     try:
         debug = int(debug_input)
-    except ValueError as error:
+    except (TypeError, ValueError) as error:
         msg = f'failed invalid debug: {error}'
         return {'status': 401, 'task': None, 'msg': msg, 'inputs': inputs}
 
@@ -70,10 +72,9 @@ def lambda_handler(events, context: LambdaContext) -> dict[str, Any]:  # noqa: P
             secret_dict = json.loads(secret_value['SecretString'])
             # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
-        except botocore.exceptions.ClientError as e:
-            error = e.response['Error']['Code']
-            error_msg = f'Describe Volume failed - {error}'
-            return {'status': 411, 'msg': error_msg}
+        except botocore.exceptions.ClientError as client_error:
+            code = client_error.response['Error']['Code']
+            return {'status': 411, 'msg': f'Describe Volume failed - {code}'}
 
     ddn_restore_api = RestoreDDN()
     base_url = events.get('base_url', None)

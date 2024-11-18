@@ -20,5 +20,5 @@ import clumio_bulk_dynamodb_list_backups
 
 
 class TestImportable(unittest.TestCase):
-    def test_lambda_handler_exists(self):
+    def test_lambda_handler_exists(self) -> None:
         self.assertTrue(hasattr(clumio_bulk_dynamodb_list_backups, 'lambda_handler'))
