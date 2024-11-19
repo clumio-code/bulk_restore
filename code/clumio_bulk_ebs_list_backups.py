@@ -37,10 +37,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_region: str | None = events.get('source_region', None)
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
-    search_direction: str | None = events.get('search_direction', None)
-    start_search_day_offset_input: str | int = events.get('start_search_day_offset', 1)
-    end_search_day_offset_input: str | int = events.get('end_search_day_offset', 0)
     target: dict = events.get('target', {})
+    search_direction: str | None = target.get('search_direction', None)
+    start_search_day_offset_input: int = target.get('start_search_day_offset', 1)
+    end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -96,15 +96,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             backup_records.append(backup_record)
 
     # Filter the result based on the tags.
-    if search_tag_key and search_tag_value:
-        tags_filtered_backups = []
-        for backup in backup_records:
-            tags = {
-                tag['key']: tag['value'] for tag in backup['backup_record']['source_volume_tags']
-            }
-            if tags.get(search_tag_key, None) == search_tag_value:
-                tags_filtered_backups.append(backup)
-        backup_records = tags_filtered_backups
+    backup_records = common.filter_backup_records_by_tags(
+        backup_records, search_tag_key, search_tag_value, 'source_volume_tags'
+    )
 
     if not backup_records:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}

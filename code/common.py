@@ -38,10 +38,11 @@ def get_sort_and_ts_filter(
     sort = START_TIMESTAMP_STR
     if direction == 'after':
         ts_filter = {START_TIMESTAMP_STR: {'$gt': start_timestamp_str, '$lte': end_timestamp_str}}
-    else:
+    elif direction == 'before':
         sort = f'-{sort}'
         ts_filter = {START_TIMESTAMP_STR: {'$lte': end_timestamp_str}}
-
+    else:
+        ts_filter = {}
     return sort, ts_filter
 
 
@@ -64,3 +65,26 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
             break
         start += 1
     return total_list
+
+
+def filter_backup_records_by_tags(
+    backup_records: list[dict],
+    search_tag_key: str | None,
+    search_tag_value: str | None,
+    tag_field: str,
+) -> list[dict]:
+    """Filter the list of backup records by tags."""
+    # Filter the result based on the tags.
+    if not (search_tag_key and search_tag_value):
+        return backup_records
+    tags_filtered_backups = []
+    for backup in backup_records:
+        tags = {tag['key']: tag['value'] for tag in backup['backup_record'][tag_field]}
+        if tags.get(search_tag_key, None) == search_tag_value:
+            tags_filtered_backups.append(backup)
+    return tags_filtered_backups
+
+
+def to_dict_or_none(obj: Any) -> dict | None:
+    """Return dict version of an object if it exists, or None otherwise."""
+    return obj.__dict__ if obj else None
