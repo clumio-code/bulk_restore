@@ -17,13 +17,12 @@
 from __future__ import annotations
 
 import json
-import random
-import string
 from typing import TYPE_CHECKING, Any
 
 import boto3
 import botocore.exceptions
-from clumio_sdk_v13 import RestoreEC2
+import common
+from clumioapi import clumioapi_client, configuration, exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -32,22 +31,19 @@ if TYPE_CHECKING:
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
     """Handle the lambda function to bulk restore EC2."""
-    record = events.get('record', {})
-    bear = events.get('bear', None)
-    target_account = events.get('target', {}).get('target_account', None)
-    target_region = events.get('target', {}).get('target_region', None)
-    debug_input = events.get('debug', None)
-    target_az = events.get('target_az', None)
-    target_iam_instance_profile_name = events.get('target', {}).get(
-        'target_iam_instance_profile_name', None
-    )
-    target_key_pair_name = events.get('target', {}).get('target_key_pair_name', None)
-    target_security_group_native_ids = events.get('target', {}).get(
-        'target_security_group_native_ids', None
-    )
-    target_subnet_native_id = events.get('target', {}).get('target_subnet_native_id', None)
-    target_vpc_native_id = events.get('target', {}).get('target_vpc_native_id', None)
-    target_kms_key_native_id = events.get('target', {}).get('target_kms_key_native_id', None)
+    record: dict = events.get('record', {})
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    target: dict = events.get('target', {})
+    target_account: str | None = target.get('target_account', None)
+    target_region: str | None = target.get('target_region', None)
+    target_az: str | None = target.get('target_az', None)
+    target_iam_instance = target.get('target_iam_instance_profile_name', None)
+    target_key_pair_name = target.get('target_key_pair_name', None)
+    target_sg_native_ids = target.get('target_security_group_native_ids', None)
+    target_subnet_native_id = target.get('target_subnet_native_id', None)
+    target_vpc_native_id = target.get('target_vpc_native_id', None)
+    target_kms_key_native_id = target.get('target_kms_key_native_id', None)
 
     inputs = {
         'resource_type': 'EC2',
@@ -56,13 +52,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'source_backup_id': None,
         'source_instance_id': None,
     }
-
-    # Validate inputs
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f'invalid debug: {e}'
-        return {'status': 401, 'task': None, 'msg': f'failed {error}', 'inputs': inputs}
 
     if len(record) == 0:
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
@@ -74,74 +63,94 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
             error_msg = f'Describe Volume failed - {error}'
             return {'status': 411, 'msg': error_msg}
 
-    # Initiate API and configure
-    ec2_restore_api = RestoreEC2()
-    base_url = events.get('base_url', None)
-    if base_url:
-        ec2_restore_api.set_url_prefix(base_url)
-    ec2_restore_api.set_token(bear)
-    ec2_restore_api.set_debug(debug)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
+    # Initiate the Clumio API client.
+    base_url = common.parse_base_url(base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
+    run_token = common.generate_random_string()
 
     if record:
-        source_backup_id = record.get('backup_record', {}).get('source_backup_id', None)
+        backup_record = record.get('backup_record', {})
+        source_backup_id = backup_record.get('source_backup_id', None)
         source_instance_id = record.get('instance_id')
     else:
         error = f'invalid backup record {record}'
         return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
-    # new_tag_identifier = [
-    #    {"key": "InstanceToScanStatus", "value": "enable"},
-    #    {"key": "OrginalInstanceId", "value": source_instance_id},
-    #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "value": run_token}
-    # ]
-    # ec2_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
-    # Set restore target information
 
-    target = {
-        'account': target_account,
-        'region': target_region,
-        'aws_az': target_az,
-        'iam_instance_profile_name': target_iam_instance_profile_name,
-        'key_pair_name': target_key_pair_name,
-        'security_group_native_ids': target_security_group_native_ids,
-        'subnet_native_id': target_subnet_native_id,
-        'vpc_native_id': target_vpc_native_id,
-        'kms_key_native_id': target_kms_key_native_id,
+    # Retrieve the environment id.
+    env_filter = {
+        'account_native_id': {'$eq': target_account},
+        'aws_region': {'$eq': target_region}
     }
-    result_target = ec2_restore_api.set_target_for_instance_restore(target)
-    if not result_target:
-        error_msgs = ec2_restore_api.get_error_msg()
-        msgs_string = ':'.join(error_msgs)
-        return {'status': 404, 'msg': msgs_string, 'inputs': inputs}
-    print(f'target set status {result_target}')
-    # Run restore
-    ec2_restore_api.save_restore_task()
-    [result_run, msg] = ec2_restore_api.ec2_restore_from_record([record])
+    response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
+    if not response.current_count:
+        return {
+            "status": 402,
+            "msg": f"The evironment with acc id {target_account} [{target_region}] cannot be found.",
+            "inputs": inputs
+        }
+    target_env_id = response.embedded.items[0].p_id
 
-    if result_run:
-        # Get a list of tasks for all of the restores.
-        task_list = ec2_restore_api.get_restore_task_list()
-        if debug > 5:  # noqa: PLR2004
-            print(task_list)
-        task = task_list[0].get('task', None)
+    network_interface_list = backup_record.get('source_network_interface_list', [])
+    ni_object_list = []
+    for ni in network_interface_list:
+        ni_object_list.append(
+            models.ec2_restore_network_interface.EC2RestoreNetworkInterface(
+                device_index=ni['device_index'],
+                security_group_native_ids=target_sg_native_ids,
+                subnet_native_id=target_subnet_native_id,
+            )
+        )
+    ebs_storage_list = backup_record.get('source_ebs_storage_list', [])
+    ebs_storage_object_list = []
+    for storage in ebs_storage_list:
+        ebs_storage_object_list.append(
+            models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
+                volume_native_id=storage['volume_native_id'],
+                kms_key_native_id=target_kms_key_native_id,
+                name=storage['name'],
+                tags=common.tags_from_dict(storage['tags'])
+            )
+        )
+
+
+    # Prepare the restore request.
+    source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
+    instance_restore_target = models.ec2_instance_restore_target.EC2InstanceRestoreTarget(
+        aws_az=target_az,
+        ebs_block_device_mappings=ebs_storage_object_list,
+        environment_id=target_env_id,
+        iam_instance_profile_name=target_iam_instance,
+        key_pair_name=target_key_pair_name,
+        network_interfaces=ni_object_list,
+        subnet_native_id=target_subnet_native_id,
+        tags=common.tags_from_dict(backup_record['source_instance_tags']),
+        vpc_native_id=target_vpc_native_id,
+    )
+    target = models.ec2_restore_target.EC2RestoreTarget(
+        instance_restore_target=instance_restore_target
+    )
+
+    request = models.restore_aws_ec2_instance_v1_request.RestoreAwsEc2InstanceV1Request(
+        source=source,
+        target=target
+    )
+
+    try:
+        response = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(body=request)
         inputs = {
-            'resource_type': 'EC2',
+            'resource_type': 'EBS',
             'run_token': run_token,
-            'task': task,
+            'task': response.task_id,
             'source_backup_id': source_backup_id,
             'source_instance_id': source_instance_id,
         }
-        if len(task_list) > 0:
-            return {'status': 200, 'msg': 'completed', 'inputs': inputs}
-        else:
-            return {'status': 207, 'msg': 'no restores', 'inputs': inputs}
-    else:
-        return {'status': 403, 'msg': msg, 'inputs': inputs}
+        return {'status': 200, 'msg': 'completed', 'inputs': inputs}
+    except exceptions.clumio_exception.ClumioException as e:
+        return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}

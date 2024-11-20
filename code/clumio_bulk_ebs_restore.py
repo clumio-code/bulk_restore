@@ -17,8 +17,6 @@
 from __future__ import annotations
 
 import json
-import random
-import string
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -81,7 +79,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
+    run_token = common.generate_random_string()
 
     if record:
         source_backup_id = record.get('backup_record', {}).get('source_backup_id', None)
@@ -99,13 +97,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
 
     # Retrieve the environment.
-    env_filter = (
-        '{'
-        '"account_native_id": {"$eq": "' + target_account + '"},'
-        '"aws_region": {"$eq": "' + target_region + '"}'
-        '}'
-    )
-    response = client.aws_environments_v1.list_aws_environments(filter=env_filter)
+    env_filter = {
+        'account_native_id': {'$eq': target_account},
+        'aws_region': {'$eq': target_region}
+    }
+    response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
     if not response.current_count:
         return {
             'status': 402,

@@ -4,11 +4,18 @@
 """Common methods and constants for the bulk restore lambda functions."""
 
 import datetime
+import secrets
+import string
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
+from clumioapi import models
+
 if TYPE_CHECKING:
+    from clumioapi.models.aws_tag_common_model import AwsTagCommonModel
+
     EventsTypeDef = dict[str, Any]
+
 
     class ListingCallable(Protocol):
         def __call__(self, filter: str | None, sort: str | None, start: int) -> Any: ...
@@ -88,3 +95,21 @@ def filter_backup_records_by_tags(
 def to_dict_or_none(obj: Any) -> dict | None:
     """Return dict version of an object if it exists, or None otherwise."""
     return obj.__dict__ if obj else None
+
+
+def tags_from_dict(tags: list[dict[str, str]]) -> list[AwsTagCommonModel]:
+    """Convert list of tags from dict to AwsTagCommonModel."""
+    tag_list = []
+    for tag in tags:
+        tag_list.append(
+            models.aws_tag_common_model.AwsTagCommonModel(
+                key=tag['key'],
+                value=tag['value']
+            )
+        )
+    return tag_list
+
+
+def generate_random_string(length: int = 13) -> str:
+    """Generate run token for restore."""
+    return ''.join(secrets.choice(string.ascii_letters) for _ in range(length))
