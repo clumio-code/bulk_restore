@@ -33,11 +33,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     """Handle the lambda function to bulk list S3 backups."""
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
-    start_search_day_offset_input: int = int(events.get('start_search_day_offset', 0))
-    end_search_day_offset_input: int = int(events.get('end_search_day_offset', 0))
     target: dict = events.get('target', {})
+    search_direction: str | None = target.get('search_direction', None)
+    start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
+    end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
     object_filters: dict = events.get('search_object_filters', {})
-    search_direction: str | None = events.get('search_direction', None)
 
     if 'latest_version_only' not in object_filters:
         object_filters['latest_version_only'] = True
