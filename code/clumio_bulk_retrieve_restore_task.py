@@ -51,7 +51,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             bear = secret_dict.get('token', None)
         except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f'Describe Volume failed - {error}'
+            error_msg = f'Describe Token failed - {error}'
             return {'status': 411, 'msg': error_msg}
 
     # Initiate the Clumio API client.
@@ -59,8 +59,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 
-    response = client.tasks_v1.read_task(task_id=task_id)
-    status = response.status
+    try:
+        response = client.tasks_v1.read_task(task_id=task_id)
+        status = response.status
+    except TypeError:
+        return {'status': 401, 'msg': 'user not authrozied to access task.', 'inputs': inputs}
 
     if status == 'completed':
         return {'status': 200, 'msg': 'task completed', 'inputs': inputs}

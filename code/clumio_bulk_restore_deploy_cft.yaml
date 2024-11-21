@@ -177,20 +177,6 @@ Resources:
       Description: clumio_bulk_s3_restore
       TracingConfig:
         Mode: Active
-  TaskPG:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: clumio_bulk_retrieve_s3_restore_task
-      Runtime: python3.12
-      Timeout: 60
-      Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_retrieve_s3_restore_task.lambda_handler
-      Code:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_s3_restore_task
-      TracingConfig:
-        Mode: Active
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
@@ -1089,7 +1075,7 @@ Resources:
                             "OutputPath": "$.Payload",
                             "Parameters": {
                               "Payload.$": "$",
-                              "FunctionName": "${TaskPG}:$LATEST"
+                              "FunctionName": "${Task}:$LATEST"
                             },
                             "Retry": [
                               {
