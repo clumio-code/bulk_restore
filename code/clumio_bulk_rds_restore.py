@@ -46,7 +46,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_subnet_group_name: str = target.get('target_subnet_group_name', None)
     target_rds_name: str = target.get('target_rds_name', None)
 
-    inputs = {'resource_type': 'RDS',}
+    inputs = {'resource_type': 'RDS'}
 
     # Validate record.
     if not record:
@@ -69,13 +69,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
+    run_token = common.generate_random_string()
 
     backup_record = record.get('backup_record', {})
     source_backup_id = backup_record.get('source_backup_id', None)
     source_resource_id = record.get('resource_id', None)
 
-    # Retrieve the environment.
+    # Retrieve the environment id.
     status_code, result_msg = common.get_environment_id(client, target_account, target_region)
     if status_code != common.STATUS_OK:
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
