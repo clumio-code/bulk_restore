@@ -23,6 +23,20 @@ Resources:
       Tags:
         - Key: Clumio
           Value: clumio_bulk_restore_api_token
+  Task:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_retrieve_restore_task
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_retrieve_restore_task.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: clumio_bulk_retrieve_restore_task
+      TracingConfig:
+        Mode: Active
   ListDDN:
     Type: AWS::Lambda::Function
     Properties:
@@ -49,20 +63,6 @@ Resources:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
       Description: clumio_bulk_dynamodb_restore
-      TracingConfig:
-        Mode: Active
-  TaskDDN:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: clumio_bulk_retrieve_dynamodb_restore_task
-      Runtime: python3.12
-      Timeout: 60
-      Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_retrieve_dynamodb_restore_task.lambda_handler
-      Code:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_dynamodb_restore_task
       TracingConfig:
         Mode: Active
   ListEC2:
@@ -93,20 +93,6 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
-  TaskEC2:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: clumio_bulk_retrieve_ec2_restore_task
-      Runtime: python3.12
-      Timeout: 60
-      Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_retrieve_ec2_restore_task.lambda_handler
-      Code:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_task
-      TracingConfig:
-        Mode: Active
   ListRDS:
     Type: AWS::Lambda::Function
     Properties:
@@ -135,20 +121,6 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
-  TaskRDS:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: clumio_bulk_retrieve_rds_restore_task
-      Runtime: python3.12
-      Timeout: 60
-      Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_retrieve_rds_restore_task.lambda_handler
-      Code:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_rds_restore_task
-      TracingConfig:
-        Mode: Active
   ListEBS:
     Type: AWS::Lambda::Function
     Properties:
@@ -175,20 +147,6 @@ Resources:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
       Description: clumio_bulk_ebs_restore
-      TracingConfig:
-        Mode: Active
-  TaskEBS:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: clumio_bulk_retrieve_ebs_restore_task
-      Runtime: python3.12
-      Timeout: 60
-      Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_retrieve_ebs_restore_task.lambda_handler
-      Code:
-        S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_ebs_restore_task
       TracingConfig:
         Mode: Active
   ListPG:
@@ -408,7 +366,7 @@ Resources:
                             "OutputPath": "$.Payload",
                             "Parameters": {
                               "Payload.$": "$",
-                              "FunctionName": "${TaskRDS}:$LATEST"
+                              "FunctionName": "${Task}:$LATEST"
                             },
                             "Retry": [
                               {
@@ -603,7 +561,7 @@ Resources:
                             "OutputPath": "$.Payload",
                             "Parameters": {
                               "Payload.$": "$",
-                              "FunctionName": "${TaskEC2}:$LATEST"
+                              "FunctionName": "${Task}:$LATEST"
                             },
                             "Retry": [
                               {
@@ -785,7 +743,7 @@ Resources:
                             "OutputPath": "$.Payload",
                             "Parameters": {
                               "Payload.$": "$",
-                              "FunctionName": "${TaskDDN}:$LATEST"
+                              "FunctionName": "${Task}:$LATEST"
                             },
                             "Retry": [
                               {
@@ -962,7 +920,7 @@ Resources:
                             "OutputPath": "$.Payload",
                             "Parameters": {
                               "Payload.$": "$",
-                              "FunctionName": "${TaskEBS}:$LATEST"
+                              "FunctionName": "${Task}:$LATEST"
                             },
                             "Retry": [
                               {
@@ -1205,18 +1163,15 @@ Resources:
             }
           }
         - {
-          ListRDSArn: !GetAtt [ ListRDS, Arn ],
-          RestoreRDSArn: !GetAtt [ RestoreRDS, Arn ],
-          TaskRDSArn: !GetAtt [ TaskRDS, Arn ],
-          ListEC2Arn: !GetAtt [ ListEC2, Arn ],
-          RestoreEC2Arn: !GetAtt [ RestoreEC2, Arn ],
-          TaskEC2Arn: !GetAtt [ TaskEC2, Arn ],
-          ListEBSArn: !GetAtt [ ListEBS, Arn ],
-          RestoreEBSArn: !GetAtt [ RestoreEBS, Arn ],
-          TaskEBSArn: !GetAtt [ TaskEBS, Arn ],
-          ListDDNArn: !GetAtt [ ListDDN, Arn ],
-          RestoreDDNArn: !GetAtt [ RestoreDDN, Arn ],
-          TaskDDNArn: !GetAtt [ TaskDDN, Arn ],
+          ListRDSArn: !GetAtt [ListRDS, Arn],
+          RestoreRDSArn: !GetAtt [RestoreRDS, Arn],
+          ListEC2Arn: !GetAtt [ListEC2, Arn],
+          RestoreEC2Arn: !GetAtt [RestoreEC2, Arn],
+          ListEBSArn: !GetAtt [ListEBS, Arn],
+          RestoreEBSArn: !GetAtt [RestoreEBS, Arn],
+          ListDDNArn: !GetAtt [ListDDN, Arn],
+          RestoreDDNArn: !GetAtt [RestoreDDN, Arn],
+          TaskArn: !GetAtt [Task, Arn],
         }
 Outputs:
   ClumioTokenArn:
