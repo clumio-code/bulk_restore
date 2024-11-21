@@ -102,4 +102,4 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     if not backup_records:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
-    return {'status': 200, 'records': backup_records, 'target': target, 'msg': 'completed'}
+    return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}
