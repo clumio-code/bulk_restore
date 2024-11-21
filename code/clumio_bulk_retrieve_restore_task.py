@@ -63,7 +63,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         response = client.tasks_v1.read_task(task_id=task_id)
         status = response.status
     except TypeError:
-        return {'status': 401, 'msg': 'user not authrozied to access task.', 'inputs': inputs}
+        return {'status': 401, 'msg': 'user not authorized to access task.', 'inputs': inputs}
 
     if status == 'completed':
         return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
