@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import unittest
 
-import clumio_bulk_retrieve_rds_restore_task
+import clumio_bulk_retrieve_restore_task
 
 
 class TestImportable(unittest.TestCase):
     def test_lambda_handler_exists(self) -> None:
-        self.assertTrue(hasattr(clumio_bulk_retrieve_rds_restore_task, 'lambda_handler'))
+        self.assertTrue(hasattr(clumio_bulk_retrieve_restore_task, 'lambda_handler'))
