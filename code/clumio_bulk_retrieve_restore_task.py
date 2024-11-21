@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Lambda function to retrieve the EC2 restore task."""
+"""Lambda function to retrieve the restore task status."""
 
 from __future__ import annotations
 
