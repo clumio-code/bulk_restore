@@ -4,6 +4,7 @@
 """Common methods and constants for the bulk restore lambda functions."""
 
 import datetime
+import json
 import secrets
 import string
 from collections.abc import Callable
@@ -88,9 +89,9 @@ def get_environment_id(
         'account_native_id': {'$eq': target_account},
         'aws_region': {'$eq': target_region}
     }
-    response = client.aws_environments_v1.list_aws_environments(filter=env_filter)
+    response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
     if not response.current_count:
-        return 402, 'No authroized environment found.'
+        return 402, 'No authorized environment found.'
     return 200, response.embedded.items[0].p_id
 
 

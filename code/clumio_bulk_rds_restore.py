@@ -17,8 +17,6 @@
 from __future__ import annotations
 
 import json
-import random
-import string
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -87,10 +85,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             backup_id=source_backup_id
         )
     )
-    target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
+    restore_target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
         environment_id=target_env_id,
         instance_class=backup_record['source_instance_class'],
-        is_publicly_available=backup_record['source_is_publicly_available'],
+        is_publicly_accessible=backup_record['source_is_publicly_available'],
         kms_key_native_id=target_kms_key_native_id,
         name=f'{source_resource_id}{target_rds_name}',
         security_group_native_ids=target_security_group_native_ids,
@@ -99,7 +97,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     )
     request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
         source=source,
-        target=target,
+        target=restore_target,
     )
     try:
         response = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(body=request)
