@@ -75,7 +75,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Perform the restore.
     source = models.dynamo_db_table_restore_source.DynamoDBTableRestoreSource(
-        securevault_backup=models.dynamo_db_restore_source_pitr_options.DynamoDBRestoreSourcePitrOptions(
+        securevault_backup=models.dynamo_db_restore_source_backup_options.DynamoDBRestoreSourceBackupOptions(
             backup_id=source_backup_id,
         )
     )
