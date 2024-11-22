@@ -88,7 +88,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     restore_target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
         environment_id=target_env_id,
         instance_class=backup_record['source_instance_class'],
-        is_publicly_accessible=backup_record['source_is_publicly_available'],
+        is_publicly_accessible=backup_record['source_is_publicly_accessible'],
         kms_key_native_id=target_kms_key_native_id,
         name=f'{source_resource_id}{target_rds_name}',
         security_group_native_ids=target_security_group_native_ids,
