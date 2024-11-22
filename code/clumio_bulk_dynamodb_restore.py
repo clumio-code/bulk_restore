@@ -45,8 +45,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 402, 'msg': f'failed invalid backup record {record}', 'inputs': inputs}
 
     backup_record: dict = record.get('backup_record', {})
-    source_backup_id: str | None = backup_record.get('source_backup_id', None)
-    source_table_name: str | None = record.get('table_name', None)
+    source_backup_id: str = backup_record.get('source_backup_id', '')
+    source_table_name: str = record.get('table_name', '')
 
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
@@ -79,20 +79,28 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             backup_id=source_backup_id,
         )
     )
-    target = models.dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
+    restore_target = models.dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
         environment_id=target_env_id,
         table_name=f'{source_table_name}-{change_set_name}'
     )
     request = models.restore_aws_dynamodb_table_v1_request.RestoreAwsDynamodbTableV1Request(
         source=source,
-        target=target,
+        target=restore_target,
     )
     try:
-        response = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(body=request)
+        # Use raw response to catch request error.
+        config.raw_response = True
+        client = clumioapi_client.ClumioAPIClient(config)
+        raw_response, result = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(
+            body=request
+        )
+        # Return if non-ok status.
+        if not raw_response.ok:
+            return {'status': raw_response.status_code, 'msg': raw_response.content, 'inputs': inputs}
         inputs = {
             'resource_type': 'DynamoDB',
             'run_token': run_token,
-            'task': response.task_id,
+            'task': result.task_id,
             'source_backup_id': source_backup_id,
             'source_table_name': source_table_name,
         }

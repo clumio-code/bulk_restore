@@ -70,8 +70,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     run_token = common.generate_random_string()
 
     backup_record = record.get('backup_record', {})
-    source_backup_id = backup_record.get('source_backup_id', None)
-    source_resource_id = record.get('resource_id', None)
+    source_backup_id = backup_record.get('source_backup_id', '')
+    source_resource_id = record.get('resource_id', '')
 
     # Retrieve the environment id.
     status_code, result_msg = common.get_environment_id(client, target_account, target_region)
@@ -100,11 +100,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         target=restore_target,
     )
     try:
-        response = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(body=request)
+        # Use raw response to catch request error.
+        config.raw_response = True
+        client = clumioapi_client.ClumioAPIClient(config)
+        raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(body=request)
+
+        # Return if non-ok status.
+        if not raw_response.ok:
+            return {'status': raw_response.status_code, 'msg': raw_response.content, 'inputs': inputs}
         inputs = {
             'resource_type': 'EBS',
             'run_token': run_token,
-            'task': response.task_id,
+            'task': result.task_id,
             'source_backup_id': source_backup_id,
             'source_resource_id': source_resource_id,
         }
