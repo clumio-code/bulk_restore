@@ -73,6 +73,7 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
         start += 1
     return total_list
 
+
 def get_environment_id(
     client: clumioapi_client.ClumioAPIClient,
     target_account: str | None,
@@ -87,7 +88,7 @@ def get_environment_id(
 
     env_filter = {
         'account_native_id': {'$eq': target_account},
-        'aws_region': {'$eq': target_region}
+        'aws_region': {'$eq': target_region},
     }
     response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
     if not response.current_count:
@@ -118,18 +119,11 @@ def to_dict_or_none(obj: Any) -> dict | None:
     return obj.__dict__ if obj else None
 
 
-def tags_from_dict(
-    tags: list[dict[str, str]]
-) -> list[aws_tag_common_model.AwsTagCommonModel]:
+def tags_from_dict(tags: list[dict[str, str]]) -> list[aws_tag_common_model.AwsTagCommonModel]:
     """Convert list of tags from dict to AwsTagCommonModel."""
     tag_list = []
     for tag in tags:
-        tag_list.append(
-            aws_tag_common_model.AwsTagCommonModel(
-                key=tag['key'],
-                value=tag['value']
-            )
-        )
+        tag_list.append(aws_tag_common_model.AwsTagCommonModel(key=tag['key'], value=tag['value']))
     return tag_list
 
 

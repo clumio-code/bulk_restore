@@ -48,7 +48,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_backup_id: str = backup_record.get('source_backup_id', '')
     source_table_name: str = record.get('table_name', '')
 
-
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
         bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
@@ -80,8 +79,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         )
     )
     restore_target = models.dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
-        environment_id=target_env_id,
-        table_name=f'{source_table_name}-{change_set_name}'
+        environment_id=target_env_id, table_name=f'{source_table_name}-{change_set_name}'
     )
     request = models.restore_aws_dynamodb_table_v1_request.RestoreAwsDynamodbTableV1Request(
         source=source,
@@ -96,7 +94,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         )
         # Return if non-ok status.
         if not raw_response.ok:
-            return {'status': raw_response.status_code, 'msg': raw_response.content, 'inputs': inputs}
+            return {
+                'status': raw_response.status_code,
+                'msg': raw_response.content,
+                'inputs': inputs,
+            }
         inputs = {
             'resource_type': 'DynamoDB',
             'run_token': run_token,

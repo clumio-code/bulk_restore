@@ -37,9 +37,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target: dict = events.get('target', {})
     target_account: str = target.get('target_account', None)
     target_region: str = target.get('target_region', None)
-    target_security_group_native_ids: list = target.get(
-        'target_security_group_native_ids', None
-    )
+    target_security_group_native_ids: list = target.get('target_security_group_native_ids', None)
     target_kms_key_native_id: str = target.get('target_kms_key_native_id', None)
     target_subnet_group_name: str = target.get('target_subnet_group_name', None)
     target_rds_name: str = target.get('target_rds_name', None)
@@ -93,7 +91,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         name=f'{source_resource_id}{target_rds_name}',
         security_group_native_ids=target_security_group_native_ids,
         subnet_group_name=target_subnet_group_name,
-        tags=common.tags_from_dict(backup_record['source_resource_tags'])
+        tags=common.tags_from_dict(backup_record['source_resource_tags']),
     )
     request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
         source=source,
@@ -103,11 +101,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         # Use raw response to catch request error.
         config.raw_response = True
         client = clumioapi_client.ClumioAPIClient(config)
-        raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(body=request)
+        raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(
+            body=request
+        )
 
         # Return if non-ok status.
         if not raw_response.ok:
-            return {'status': raw_response.status_code, 'msg': raw_response.content, 'inputs': inputs}
+            return {
+                'status': raw_response.status_code,
+                'msg': raw_response.content,
+                'inputs': inputs,
+            }
         inputs = {
             'resource_type': 'EBS',
             'run_token': run_token,
