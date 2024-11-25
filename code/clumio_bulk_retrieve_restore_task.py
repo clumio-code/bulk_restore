@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Lambda function to retrieve the EBS restore task."""
+"""Lambda function to retrieve the restore task status."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
-    """Handle the lambda function to retrieve the EBS restore task."""
+    """Handle the lambda function to retrieve the EC2 restore task."""
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     inputs: dict = events.get('inputs', {})
@@ -51,18 +51,19 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             bear = secret_dict.get('token', None)
         except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f'Describe Volume failed - {error}'
+            error_msg = f'Describe Token failed - {error}'
             return {'status': 411, 'msg': error_msg}
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
+    base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 
-    # Retrieve the task id status.
-    response = client.tasks_v1.read_task(task_id=task_id)
-    status = response.status
+    try:
+        response = client.tasks_v1.read_task(task_id=task_id)
+        status = response.status
+    except TypeError:
+        return {'status': 401, 'msg': 'user not authorized to access task.', 'inputs': inputs}
 
     if status == 'completed':
         return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
