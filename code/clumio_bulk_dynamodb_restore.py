@@ -85,6 +85,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         source=source,
         target=restore_target,
     )
+    inputs = {
+        'resource_type': 'DynamoDB',
+        'run_token': run_token,
+        'task': None,
+        'source_backup_id': source_backup_id,
+        'source_table_name': source_table_name,
+    }
     try:
         # Use raw response to catch request error.
         config.raw_response = True
@@ -99,13 +106,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'msg': raw_response.content,
                 'inputs': inputs,
             }
-        inputs = {
-            'resource_type': 'DynamoDB',
-            'run_token': run_token,
-            'task': result.task_id,
-            'source_backup_id': source_backup_id,
-            'source_table_name': source_table_name,
-        }
+        inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
     except exceptions.clumio_exception.ClumioException as e:
         return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
