@@ -4,8 +4,14 @@
 """Common methods and constants for the bulk restore lambda functions."""
 
 import datetime
+import json
+import secrets
+import string
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
+
+from clumioapi import clumioapi_client
+from clumioapi.models import aws_tag_common_model
 
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
@@ -16,6 +22,7 @@ if TYPE_CHECKING:
 
 DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
 START_TIMESTAMP_STR: Final = 'start_timestamp'
+STATUS_OK: Final = 200
 
 
 def parse_base_url(base_url: str) -> str:
@@ -67,6 +74,28 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
     return total_list
 
 
+def get_environment_id(
+    client: clumioapi_client.ClumioAPIClient,
+    target_account: str | None,
+    target_region: str | None,
+) -> tuple[int, str]:
+    """Retrieve the environment for given target_account and target_region."""
+    if not target_account:
+        return 402, 'target_account is required'
+
+    if not target_region:
+        return 402, 'target_region is required.'
+
+    env_filter = {
+        'account_native_id': {'$eq': target_account},
+        'aws_region': {'$eq': target_region},
+    }
+    response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
+    if not response.current_count:
+        return 402, 'No authorized environment found.'
+    return 200, response.embedded.items[0].p_id
+
+
 def filter_backup_records_by_tags(
     backup_records: list[dict],
     search_tag_key: str | None,
@@ -88,3 +117,16 @@ def filter_backup_records_by_tags(
 def to_dict_or_none(obj: Any) -> dict | None:
     """Return dict version of an object if it exists, or None otherwise."""
     return obj.__dict__ if obj else None
+
+
+def tags_from_dict(tags: list[dict[str, str]]) -> list[aws_tag_common_model.AwsTagCommonModel]:
+    """Convert list of tags from dict to AwsTagCommonModel."""
+    tag_list = []
+    for tag in tags:
+        tag_list.append(aws_tag_common_model.AwsTagCommonModel(key=tag['key'], value=tag['value']))
+    return tag_list
+
+
+def generate_random_string(length: int = 13) -> str:
+    """Generate run token for restore."""
+    return ''.join(secrets.choice(string.ascii_letters) for _ in range(length))

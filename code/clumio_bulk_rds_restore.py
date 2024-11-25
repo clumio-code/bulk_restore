@@ -17,13 +17,12 @@
 from __future__ import annotations
 
 import json
-import random
-import string
 from typing import TYPE_CHECKING, Any
 
 import boto3
 import botocore.exceptions
-from clumio_sdk_v13 import RestoreRDS
+import common
+from clumioapi import clumioapi_client, configuration, exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -32,33 +31,22 @@ if TYPE_CHECKING:
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915, PLR0911
     """Handle the lambda function to bulk restore RDS."""
-    print(f'clumio_rds_restore events: {events}')
-    record = events.get('record', {})
-    bear = events.get('bear', None)
-    target_account = events.get('target', {}).get('target_account', None)
-    target_region = events.get('target', {}).get('target_region', None)
-    debug_input = events.get('debug', None)
-    target_security_group_native_ids = events.get('target', {}).get(
-        'target_security_group_native_ids', None
-    )
-    target_kms_key_native_id = events.get('target', {}).get('target_kms_key_native_id', None)
-    target_subnet_group_name = events.get('target', {}).get('target_subnet_group_name', None)
-    target_rds_name = events.get('target', {}).get('target_rds_name', None)
+    record: dict = events.get('record', {})
+    bear: str | None = events.get('bear', None)
+    base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    target: dict = events.get('target', {})
+    target_account: str = target.get('target_account', None)
+    target_region: str = target.get('target_region', None)
+    target_security_group_native_ids: list = target.get('target_security_group_native_ids', None)
+    target_kms_key_native_id: str = target.get('target_kms_key_native_id', None)
+    target_subnet_group_name: str = target.get('target_subnet_group_name', None)
+    target_rds_name: str = target.get('target_rds_name', None)
 
-    inputs = {
-        'resource_type': 'RDS',
-        'run_token': None,
-        'task': None,
-        'source_backup_id': None,
-        'source_resource_id': None,
-    }
+    inputs: dict[str, Any] = {'resource_type': 'RDS'}
 
-    # Validate inputs
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f'invalid debug: {e}'
-        return {'status': 401, 'task': None, 'msg': f'failed {error}', 'inputs': inputs}
+    # Validate record.
+    if not record:
+        return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret
     if not bear:
@@ -67,84 +55,71 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         try:
             secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
             secret_dict = json.loads(secret_value['SecretString'])
-            # username = secret_dict.get('username', None)
             bear = secret_dict.get('token', None)
         except botocore.exceptions.ClientError as e:
             error = e.response['Error']['Code']
-            error_msg = f'Describe Volume failed - {error}'
-            payload = error_msg
+            error_msg = f'Describe token failed - {error}'
             return {'status': 411, 'msg': error_msg}
 
-    if not record:
-        return {'status': 205, 'msg': 'no records', 'inputs': inputs}
+    # Initiate the Clumio API client.
+    base_url = common.parse_base_url(base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    client = clumioapi_client.ClumioAPIClient(config)
+    run_token = common.generate_random_string()
 
-    # Initiate API and configure
-    rds_restore_api = RestoreRDS()
-    base_url = events.get('base_url', None)
-    if base_url:
-        rds_restore_api.set_url_prefix(base_url)
-    rds_restore_api.set_token(bear)
-    rds_restore_api.set_debug(debug)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
+    backup_record = record.get('backup_record', {})
+    source_backup_id = backup_record.get('source_backup_id', '')
+    source_resource_id = record.get('resource_id', '')
 
-    if record:
-        source_backup_id = record.get('backup_record', {}).get('source_backup_id', None)
-        resource_id = record.get('resource_id', None)
-    else:
-        error = f'invalid backup record {record}'
-        return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
-    # new_tag_identifier = [
-    #    {"key": "InstanceToScanStatus", "value": "enable"},
-    #    {"key": "OrginalInstanceId", "value": source_instance_id},
-    #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "vquitalue": run_token}
-    # ]
-    # rds_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
-    # Set restore target information
+    # Retrieve the environment id.
+    status_code, result_msg = common.get_environment_id(client, target_account, target_region)
+    if status_code != common.STATUS_OK:
+        return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
+    target_env_id = result_msg
 
-    source_name = resource_id
-    rnd_string = ''.join(random.choices(string.ascii_letters, k=3))  # noqa: S311
-    name_composite = f'{source_name}{target_rds_name}{rnd_string}'
-
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
-    if debug > 40:  # noqa: PLR2004
-        print(
-            f'source_name  {source_name} target_rds_name  {target_rds_name} name_composite  {name_composite}'
+    # Perform the restore.
+    source = models.rds_resource_restore_source.RdsResourceRestoreSource(
+        backup=models.rds_resource_restore_source_air_gap_options.RdsResourceRestoreSourceAirGapOptions(
+            backup_id=source_backup_id
         )
-    target = {
-        'account': target_account,
-        'region': target_region,
-        'name': name_composite,
-        'security_group_native_ids': target_security_group_native_ids,
-        'kms_key_native_id': target_kms_key_native_id,
-        'subnet_group_name': target_subnet_group_name,
-    }
-    print(f'rds-restore target: {target}')
-    result_target = rds_restore_api.set_target_for_rds_restore(target)
-    if not result_target:
-        error_msgs = rds_restore_api.get_error_msg()
-        msgs_string = ':'.join(error_msgs)
-        return {'status': 404, 'msg': msgs_string, 'inputs': inputs}
-    print(f'target set status {result_target}')
-    # Run restore
-    rds_restore_api.save_restore_task()
-    [result_run, msg] = rds_restore_api.rds_restore_from_record([record])
-
-    if not result_run:
-        return {'status': 403, 'msg': msg, 'inputs': inputs}
-
-    # Get a list of tasks for all of the restores.
-    task_list = rds_restore_api.get_restore_task_list()
-    if debug > 5:  # noqa: PLR2004
-        print(task_list)
-    task = task_list[0].get('task', None)
+    )
+    restore_target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
+        environment_id=target_env_id,
+        instance_class=backup_record['source_instance_class'],
+        is_publicly_accessible=backup_record['source_is_publicly_accessible'],
+        kms_key_native_id=target_kms_key_native_id,
+        name=f'{source_resource_id}{target_rds_name}',
+        security_group_native_ids=target_security_group_native_ids,
+        subnet_group_name=target_subnet_group_name,
+        tags=common.tags_from_dict(backup_record['source_resource_tags']),
+    )
+    request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
+        source=source,
+        target=restore_target,
+    )
     inputs = {
         'resource_type': 'RDS',
         'run_token': run_token,
-        'task': task,
+        'task': None,
         'source_backup_id': source_backup_id,
-        'source_resource_id': resource_id,
+        'source_resource_id': source_resource_id,
     }
-    if task_list:
+    try:
+        # Use raw response to catch request error.
+        config.raw_response = True
+        client = clumioapi_client.ClumioAPIClient(config)
+        raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(
+            body=request
+        )
+
+        # Return if non-ok status.
+        if not raw_response.ok:
+            return {
+                'status': raw_response.status_code,
+                'msg': raw_response.content,
+                'inputs': inputs,
+            }
+        inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
-    return {'status': 207, 'msg': 'no restores', 'inputs': inputs}
+    except exceptions.clumio_exception.ClumioException as e:
+        return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
