@@ -90,29 +90,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         error = f'invalid backup record {record}'
         return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
 
-    if not target_account:
-        error = 'target_account is required'
-        return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
-
-    if not target_region:
-        error = 'target_region is required'
-        return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
-
-    # Retrieve the environment.
-    env_filter = (
-        '{'
-        '"account_native_id": {"$eq": "' + target_account + '"},'
-        '"aws_region": {"$eq": "' + target_region + '"}'
-        '}'
-    )
-    response = client.aws_environments_v1.list_aws_environments(filter=env_filter)
-    if not response.current_count:
-        return {
-            'status': 402,
-            'msg': f'The evironment with account_id {target_account} and region {target_region} cannot be found.',
-            'inputs': inputs,
-        }
-    target_env_id = response.embedded.items[0].p_id
+    # Retrieve the environment id.
+    status_code, result_msg = common.get_environment_id(client, target_account, target_region)
+    if status_code != common.STATUS_OK:
+        return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
+    target_env_id = result_msg
 
     # Perform the restore.
     source = models.ebs_restore_source.EBSRestoreSource(backup_id=source_backup_id)
