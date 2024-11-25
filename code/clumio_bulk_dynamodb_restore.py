@@ -39,7 +39,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_account: str | None = target.get('target_account', None)
     change_set_name: str | None = events.get('target', {}).get('change_set_name', None)
 
-    inputs = {'resource_type': 'DynamoDB'}
+    inputs: dict[str, Any] = {'resource_type': 'DynamoDB'}
 
     if not record:
         return {'status': 402, 'msg': f'failed invalid backup record {record}', 'inputs': inputs}

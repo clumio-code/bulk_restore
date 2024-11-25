@@ -42,7 +42,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_subnet_group_name: str = target.get('target_subnet_group_name', None)
     target_rds_name: str = target.get('target_rds_name', None)
 
-    inputs = {'resource_type': 'RDS'}
+    inputs: dict[str, Any] = {'resource_type': 'RDS'}
 
     # Validate record.
     if not record:
