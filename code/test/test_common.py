@@ -19,7 +19,14 @@ import unittest
 from code import common
 from unittest import mock
 
-from clumioapi.models import list_tasks_response, task_list_embedded, task_with_e_tag
+from clumioapi.models import (
+    aws_environment,
+    aws_environment_list_embedded,
+    list_aws_environments_response,
+    list_tasks_response,
+    task_list_embedded,
+    task_with_e_tag,
+)
 
 
 class TestUtilFunctions(unittest.TestCase):
@@ -50,6 +57,58 @@ class TestUtilFunctions(unittest.TestCase):
         )
         retrieved_task_ids = [task.p_id for task in tasks_list]
         self.assertEqual(task_ids, retrieved_task_ids)
+
+    def test_get_environment_id(self):
+        """Verify get_environment_id function."""
+        # Empty response.
+        target_account = 'target_account'
+        target_region = 'target_region'
+        self.api_client().aws_environments_v1.list_aws_environments.return_value = (
+            list_aws_environments_response.ListAWSEnvironmentsResponse(current_count=0)
+        )
+        status_code, _ = common.get_environment_id(self.api_client(), target_account, target_region)
+        self.assertEqual(status_code, 402)
+
+        # Non-empty response.
+        self.api_client().aws_environments_v1.list_aws_environments.return_value = (
+            list_aws_environments_response.ListAWSEnvironmentsResponse(
+                embedded=aws_environment_list_embedded.AWSEnvironmentListEmbedded(
+                    items=[aws_environment.AWSEnvironment(p_id='env_id')]
+                ),
+                current_count=1,
+            )
+        )
+        status_code, env_id = common.get_environment_id(
+            self.api_client(), target_account, target_region
+        )
+        self.assertEqual(status_code, 200)
+        self.assertEqual(env_id, 'env_id')
+
+    def test_filter_backup_records_by_tags(self):
+        """Verify the filter_backup_records_by_tags function."""
+        tag_field = 'source_asset_tags'
+        target_key = 'target-key'
+        backup_records = [
+            {
+                'asset_id': 'asset_id-1',
+                'backup_record': {tag_field: [{'key': target_key, 'value': 'target-value'}]},
+            },
+            {
+                'asset_id': 'asset_id-2',
+                'backup_record': {tag_field: [{'key': target_key, 'value': 'no-value'}]},
+            },
+        ]
+        # Empty search tag value.
+        filtered_backup_records = common.filter_backup_records_by_tags(
+            backup_records, target_key, None, tag_field
+        )
+        self.assertEqual(backup_records, filtered_backup_records)
+        # Non-empty search tag value.
+        filtered_backup_records = common.filter_backup_records_by_tags(
+            backup_records, target_key, 'target-value', tag_field
+        )
+        self.assertEqual(len(filtered_backup_records), 1)
+        self.assertEqual(backup_records[0]['asset_id'], 'asset_id-1')
 
 
 class TestGetSortAndTSFilter(unittest.TestCase):
