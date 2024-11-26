@@ -18,19 +18,9 @@ DATE_TIME_FORMAT: Final = '%Y-%m-%d %H:%M:%S'
 DATE_FORMAT: Final = '%Y-%m-%d'
 
 
-def get_utc_now():
+def get_utc_now() -> datetime.datetime:
     """Returns datetime now in UTC timezone."""
     return datetime.datetime.now(datetime.UTC)
-
-
-def get_utc_start_of_today() -> datetime.datetime:
-    """Returns start of today UTC."""
-    return get_utc_now().replace(hour=0, minute=0, second=0)
-
-
-def get_utc_end_of_today() -> datetime.datetime:
-    """Returns end of today UTC."""
-    return get_utc_now().replace(hour=23, minute=59, second=59)
 
 
 def get_midnight_today_utc() -> datetime.datetime:

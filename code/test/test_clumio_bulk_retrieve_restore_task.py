@@ -18,6 +18,7 @@ import unittest
 from code import clumio_bulk_retrieve_restore_task
 from unittest import mock
 
+from aws_lambda_powertools.utilities.typing import LambdaContext
 from clumioapi.models import read_task_response
 
 
@@ -28,6 +29,7 @@ class TestLambdaHandler(unittest.TestCase):
         """Setup method for class."""
         api_client_patch = mock.patch('clumioapi.clumioapi_client.ClumioAPIClient')
         self.api_client = api_client_patch.start()
+        self.context = LambdaContext()
         self.events = {
             'bear': 'bearer_token',
             'base_url': 'base_url',
@@ -41,7 +43,9 @@ class TestLambdaHandler(unittest.TestCase):
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
                 status=status,
             )
-            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, 0)
+            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(
+                self.events, self.context
+            )
             self.assertEqual(lambda_result['status'], 205)
             self.assertIn('not done', lambda_result['msg'])
 
@@ -49,7 +53,7 @@ class TestLambdaHandler(unittest.TestCase):
         self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
             status='completed',
         )
-        lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, 0)
+        lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
         self.assertEqual(lambda_result['status'], 200)
         self.assertIn('completed', lambda_result['msg'])
 
@@ -58,7 +62,9 @@ class TestLambdaHandler(unittest.TestCase):
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
                 status=status,
             )
-            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, 0)
+            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(
+                self.events, self.context
+            )
             self.assertEqual(lambda_result['status'], 403)
             self.assertIn('failed', lambda_result['msg'])
 
