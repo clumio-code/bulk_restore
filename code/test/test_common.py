@@ -32,11 +32,11 @@ from clumioapi.models import (
 class TestUtilFunctions(unittest.TestCase):
     """Test the common util functions."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         api_client_patch = mock.patch('clumioapi.clumioapi_client.ClumioAPIClient')
         self.api_client = api_client_patch.start()
 
-    def test_get_total_list(self):
+    def test_get_total_list(self) -> None:
         """Verify get_total_list function."""
         task_ids = ['1', '2']
         return_vals = [
@@ -58,7 +58,7 @@ class TestUtilFunctions(unittest.TestCase):
         retrieved_task_ids = [task.p_id for task in tasks_list]
         self.assertEqual(task_ids, retrieved_task_ids)
 
-    def test_get_environment_id(self):
+    def test_get_environment_id(self) -> None:
         """Verify get_environment_id function."""
         # Empty response.
         target_account = 'target_account'
@@ -84,7 +84,7 @@ class TestUtilFunctions(unittest.TestCase):
         self.assertEqual(status_code, 200)
         self.assertEqual(env_id, 'env_id')
 
-    def test_filter_backup_records_by_tags(self):
+    def test_filter_backup_records_by_tags(self) -> None:
         """Verify the filter_backup_records_by_tags function."""
         tag_field = 'source_asset_tags'
         target_key = 'target-key'

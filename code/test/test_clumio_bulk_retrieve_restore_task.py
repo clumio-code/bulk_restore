@@ -34,7 +34,7 @@ class TestLambdaHandler(unittest.TestCase):
             'inputs': {'task': 'task_id'},
         }
 
-    def test_read_task(self):
+    def test_read_task(self) -> None:
         """Verify the return when the environment id is bad."""
         # In-progress states.
         for status in ['queued', 'in_progress']:
