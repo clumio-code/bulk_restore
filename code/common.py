@@ -3,10 +3,13 @@
 
 """Common methods and constants for the bulk restore lambda functions."""
 
+from __future__ import annotations
+
 import datetime
 import json
 import secrets
 import string
+from code.utils import dates
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
@@ -36,12 +39,11 @@ def get_sort_and_ts_filter(
     direction: str | None, start_day_offset: int, end_day_offset: int
 ) -> tuple[str, dict[str, Any]]:
     """Get the sort and the timestamp filter."""
-    current_timestamp = datetime.datetime.now(datetime.UTC)
-    end_timestamp = current_timestamp - datetime.timedelta(days=end_day_offset)
-    end_timestamp_str = end_timestamp.strftime('%Y-%m-%d') + 'T23:59:59Z'
+    end_timestamp_str = dates.get_max_n_days_ago(end_day_offset).strftime(dates.ISO_8601_FORMAT)
+    start_timestamp_str = dates.get_midnight_n_days_ago(start_day_offset).strftime(
+        dates.ISO_8601_FORMAT
+    )
 
-    start_timestamp = current_timestamp - datetime.timedelta(days=start_day_offset)
-    start_timestamp_str = start_timestamp.strftime('%Y-%m-%d') + 'T00:00:00Z'
     sort = START_TIMESTAMP_STR
     if direction == 'after':
         ts_filter = {START_TIMESTAMP_STR: {'$gt': start_timestamp_str, '$lte': end_timestamp_str}}
