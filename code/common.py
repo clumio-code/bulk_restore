@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import datetime
 import json
 import secrets
 import string
@@ -13,17 +12,21 @@ from code.utils import dates
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
+import boto3
+import botocore.exceptions
 from clumioapi import clumioapi_client
 from clumioapi.models import aws_tag_common_model
 
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
+    StatusAndMsgTypeDef = tuple[int, str]
 
     class ListingCallable(Protocol):
         def __call__(self, filter: str | None, sort: str | None, start: int) -> Any: ...
 
 
 DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
+DEFAULT_SECRET_PATH: Final = 'clumio/token/bulk_restore'
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
 
@@ -80,7 +83,7 @@ def get_environment_id(
     client: clumioapi_client.ClumioAPIClient,
     target_account: str | None,
     target_region: str | None,
-) -> tuple[int, str]:
+) -> StatusAndMsgTypeDef:
     """Retrieve the environment for given target_account and target_region."""
     if not target_account:
         return 402, 'target_account is required'
@@ -96,6 +99,20 @@ def get_environment_id(
     if not response.current_count:
         return 402, 'No authorized environment found.'
     return 200, response.embedded.items[0].p_id
+
+
+def get_bearer_token() -> StatusAndMsgTypeDef:
+    """Retrieve the bearer token from secret manager."""
+    bearer_secret = DEFAULT_SECRET_PATH
+    secretsmanager = boto3.client('secretsmanager')
+    try:
+        secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
+        secret_dict = json.loads(secret_value['SecretString'])
+        bear = secret_dict.get('token', '')
+        return STATUS_OK, bear
+    except botocore.exceptions.ClientError as client_error:
+        code = client_error.response['Error']['Code']
+        return 411, f'Describe secret failed - {code}'
 
 
 def filter_backup_records_by_tags(

@@ -16,12 +16,9 @@
 
 from __future__ import annotations
 
-import json
 from code import common
 from typing import TYPE_CHECKING, Any
 
-import boto3
-import botocore.exceptions
 from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
@@ -41,18 +38,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     task_id = task
 
-    # If clumio bearer token is not passed as an input read it from the AWS secret
+    # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not bear:
-        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
-        secretsmanager = boto3.client('secretsmanager')
-        try:
-            secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
-            secret_dict = json.loads(secret_value['SecretString'])
-            bear = secret_dict.get('token', None)
-        except botocore.exceptions.ClientError as e:
-            error = e.response['Error']['Code']
-            error_msg = f'Describe Token failed - {error}'
-            return {'status': 411, 'msg': error_msg}
+        status, msg = common.get_bearer_token()
+        if status != common.STATUS_OK:
+            return {'status': status, 'msg': msg}
+        bear = msg
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
