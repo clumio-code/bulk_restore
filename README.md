@@ -73,6 +73,9 @@ Secret which can optionally be used to store your Clumio API token.
 > created to scope those permissions to achieve least privilege. If you use the
 > AWS secret to store your Clumio api token, this IAM Role will also need to
 > have read access to the secret.
+> 
+> The example of both the role trusted relationships and the policy can be found
+> in examples folder.
 
 > [!NOTE]
 > The `clumio_bulk_restore_deploy_cft.yaml` file is the CloudFormation (CFT)
