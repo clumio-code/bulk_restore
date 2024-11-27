@@ -16,9 +16,9 @@
 
 from __future__ import annotations
 
-from code import common
 from typing import TYPE_CHECKING, Any
 
+import common
 from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:
