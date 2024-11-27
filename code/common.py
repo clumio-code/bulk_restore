@@ -11,6 +11,8 @@ import string
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
+import boto3
+import botocore.exceptions
 from clumioapi import clumioapi_client, exceptions
 from clumioapi.models import aws_tag_common_model
 from utils import dates
