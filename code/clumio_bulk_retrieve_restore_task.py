@@ -17,11 +17,11 @@
 from __future__ import annotations
 
 import json
-from code import common
 from typing import TYPE_CHECKING, Any
 
 import boto3
 import botocore.exceptions
+import common
 from clumioapi import clumioapi_client, configuration
 
 if TYPE_CHECKING:

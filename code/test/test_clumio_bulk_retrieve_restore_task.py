@@ -11,13 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Unit test for clumio_bulk_retrieve_restore_task."""
 
 from __future__ import annotations
 
 import unittest
-from code import clumio_bulk_retrieve_restore_task
 from unittest import mock
 
+import clumio_bulk_retrieve_restore_task
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from clumioapi.models import read_task_response
 

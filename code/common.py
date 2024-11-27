@@ -5,16 +5,15 @@
 
 from __future__ import annotations
 
-import datetime
 import json
 import secrets
 import string
-from code.utils import dates
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-from clumioapi import clumioapi_client
+from clumioapi import clumioapi_client, exceptions
 from clumioapi.models import aws_tag_common_model
+from utils import dates
 
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
@@ -66,11 +65,16 @@ def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
     start = 1
     total_list = []
     while True:
-        response = function(filter=api_filter, sort=sort, start=start)
-        if not response.total_count:
+        raw_response, parsed_response = function(filter=api_filter, sort=sort, start=start)
+        # Raise error if raw response is not ok.
+        if not raw_response.ok:
+            raise exceptions.clumio_exception.ClumioException(
+                raw_response.reason, raw_response.content
+            )
+        if not parsed_response.total_count:
             break
-        total_list.extend(response.embedded.items)
-        if response.total_pages_count <= start:
+        total_list.extend(parsed_response.embedded.items)
+        if parsed_response.total_pages_count <= start:
             break
         start += 1
     return total_list

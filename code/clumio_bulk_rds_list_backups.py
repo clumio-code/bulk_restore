@@ -102,11 +102,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    raw_backup_records = common.get_total_list(
-        function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
-        api_filter=json.dumps(ts_filter),
-        sort=sort,
-    )
+    try:
+        raw_backup_records = common.get_total_list(
+            function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
+            api_filter=json.dumps(ts_filter),
+            sort=sort,
+        )
+    except clumio_exception.ClumioException as e:
+        return {'status': 401, 'msg': f'List backup error - {e}'}
 
     # Filter the result based on the source_account and source region.
     backup_records = []
