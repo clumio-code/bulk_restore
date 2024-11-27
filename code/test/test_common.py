@@ -11,14 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Unit test for common module."""
 
 from __future__ import annotations
 
 import datetime
 import unittest
-from code import common
 from unittest import mock
 
+import common
+import requests
+from clumioapi.exceptions import clumio_exception
 from clumioapi.models import (
     aws_environment,
     aws_environment_list_embedded,
@@ -38,14 +41,20 @@ class TestUtilFunctions(unittest.TestCase):
 
     def test_get_total_list(self) -> None:
         """Verify get_total_list function."""
+        # Ok response.
         task_ids = ['1', '2']
+        ok_response = requests.Response()
+        ok_response.status_code = 200
         return_vals = [
-            list_tasks_response.ListTasksResponse(
-                embedded=task_list_embedded.TaskListEmbedded(
-                    items=[task_with_e_tag.TaskWithETag(p_id=task_id)]
+            (
+                ok_response,
+                list_tasks_response.ListTasksResponse(
+                    embedded=task_list_embedded.TaskListEmbedded(
+                        items=[task_with_e_tag.TaskWithETag(p_id=task_id)]
+                    ),
+                    total_count=2,
+                    total_pages_count=2,
                 ),
-                total_count=2,
-                total_pages_count=2,
             )
             for task_id in task_ids
         ]
@@ -57,6 +66,17 @@ class TestUtilFunctions(unittest.TestCase):
         )
         retrieved_task_ids = [task.p_id for task in tasks_list]
         self.assertEqual(task_ids, retrieved_task_ids)
+
+        # Non-ok response.
+        non_ok_response = requests.Response()
+        non_ok_response.status_code = 401
+        self.api_client().tasks_v1.list_task.side_effect = [(non_ok_response, None)]
+        with self.assertRaises(clumio_exception.ClumioException):
+            _ = common.get_total_list(
+                self.api_client().tasks_v1.list_task,
+                api_filter='api_filter',
+                sort='sort',
+            )
 
     def test_get_environment_id(self) -> None:
         """Verify get_environment_id function."""
