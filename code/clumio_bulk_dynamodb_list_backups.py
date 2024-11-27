@@ -19,8 +19,6 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-import boto3
-import botocore.exceptions
 import common
 from clumioapi import clumioapi_client, configuration
 from clumioapi.exceptions import clumio_exception
@@ -86,18 +84,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
 
-    # If clumio bearer token is not passed as an input read it from the AWS secret
+    # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not bear:
-        bearer_secret = 'clumio/token/bulk_restore'  # noqa: S105
-        secretsmanager = boto3.client('secretsmanager')
-        try:
-            secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
-            secret_dict = json.loads(secret_value['SecretString'])
-            bear = secret_dict.get('token', None)
-        except botocore.exceptions.ClientError as e:
-            error = e.response['Error']['Code']
-            error_msg = f'Describe Volume failed - {error}'
-            return {'status': 411, 'msg': error_msg}
+        status, msg = common.get_bearer_token()
+        if status != common.STATUS_OK:
+            return {'status': status, 'msg': msg}
+        bear = msg
 
     # Validate inputs
     try:
