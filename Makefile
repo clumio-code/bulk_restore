@@ -28,7 +28,9 @@ clean:
 build:
 	rm -rf build/lambda build/clumio_bulk_restore.zip build/clumio_bulk_restore_deploy_cft.yaml
 	mkdir -p build/lambda
+	mkdir -p build/lambda/utils
 	cp code/*.py build/lambda/
+	cp -r code/utils/* build/lambda/utils
 	pip install -r requirements.txt -t build/lambda/
 	cd build/lambda && zip -r ../clumio_bulk_restore.zip .
 	cp code/clumio_bulk_restore_deploy_cft.yaml build/
