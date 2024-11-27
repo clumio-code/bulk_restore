@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 import common
 from clumioapi import clumioapi_client, configuration
+from clumioapi.exceptions import clumio_exception
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -85,20 +86,22 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         bear = msg
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    base_url = common.parse_base_url(base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.
     sort, ts_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    raw_backup_records = common.get_total_list(
-        function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
-        api_filter=json.dumps(ts_filter),
-        sort=sort,
-    )
+    try:
+        raw_backup_records = common.get_total_list(
+            function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
+            api_filter=json.dumps(ts_filter),
+            sort=sort,
+        )
+    except clumio_exception.ClumioException as e:
+        return {'status': 401, 'msg': f'List backup error - {e}'}
 
     # Filter the result based on the source_account and source region.
     backup_records = []
