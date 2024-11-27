@@ -58,7 +58,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
     sort, ts_filter = common.get_sort_and_ts_filter(

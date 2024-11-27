@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 import common
 from clumioapi import clumioapi_client, configuration
+from clumioapi.exceptions import clumio_exception
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -85,9 +86,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         bear = msg
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    base_url = common.parse_base_url(base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.

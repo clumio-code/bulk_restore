@@ -70,7 +70,6 @@ class TestUtilFunctions(unittest.TestCase):
         # Non-ok response.
         non_ok_response = requests.Response()
         non_ok_response.status_code = 401
-        non_ok_response.error_type = 'Not authorized.'
         self.api_client().tasks_v1.list_task.side_effect = [(non_ok_response, None)]
         with self.assertRaises(clumio_exception.ClumioException):
             _ = common.get_total_list(

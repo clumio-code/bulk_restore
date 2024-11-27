@@ -84,9 +84,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate the Clumio API client.
-    if 'https' in base_url:
-        base_url = base_url.split('/')[2]
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    base_url = common.parse_base_url(base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.
