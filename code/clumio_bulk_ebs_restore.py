@@ -80,20 +80,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
     target_env_id = result_msg
 
-    # Perform the restore.
-    source = models.ebs_restore_source.EBSRestoreSource(backup_id=source_backup_id)
-    restore_target = models.ebs_restore_target.EBSRestoreTarget(
-        aws_az=target_az,
-        environment_id=target_env_id,
-        iops=target_iops,
-        kms_key_native_id=target_kms_key_native_id or None,
-        p_type=target_volume_type or backup_record.get('source_volume_type', None),
-        tags=common.tags_from_dict(backup_record.get('source_volume_tags', [])),
-    )
-    request = models.restore_aws_ebs_volume_v2_request.RestoreAwsEbsVolumeV2Request(
-        source=source, target=restore_target
-    )
-
     # Validate inputs.
     try:
         if target_iops is not None:
@@ -111,6 +97,20 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'source_volume_type': source_volume_type
             }
         }
+
+    # Perform the restore.
+    source = models.ebs_restore_source.EBSRestoreSource(backup_id=source_backup_id)
+    restore_target = models.ebs_restore_target.EBSRestoreTarget(
+        aws_az=target_az,
+        environment_id=target_env_id,
+        iops=target_iops,
+        kms_key_native_id=target_kms_key_native_id or None,
+        p_type=p_type,
+        tags=common.tags_from_dict(backup_record.get('source_volume_tags', [])),
+    )
+    request = models.restore_aws_ebs_volume_v2_request.RestoreAwsEbsVolumeV2Request(
+        source=source, target=restore_target
+    )
 
     inputs = {
         'resource_type': 'EBS',
