@@ -138,14 +138,14 @@ CloudFormation Template when you deploy the solution.
 | search_tag_value                 | If searching by AWS tag set search key and value                                                            |
 
 
-| Target Input Parameter  EBS      | Description                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------   |
-| target_account                   | AWS account where the ebs resource is to be restored                                                        |
-| target_region                    | AWS region where the ebs resource is to be restored                                                         |
-| target_aws_az                    | required, infrastructure value for restore AWS AZ                                                           |
-| target_iops                      | optional, infrastructure value for EBS iops setting                                                         |
-| target_volume_type               | optional, infrastructure value for EBS volume type setting                                                  |
-| target_kms_key_native_id         | optional, infrastructure value for restore AWS KMS key id                                                   |
+| Target Input Parameter  EBS      | Description                                                                                                               |
+| -------------------------------- |---------------------------------------------------------------------------------------------------------------------------|
+| target_account                   | AWS account where the ebs resource is to be restored                                                                      |
+| target_region                    | AWS region where the ebs resource is to be restored                                                                       |
+| target_aws_az                    | required, infrastructure value for restore AWS AZ                                                                         |
+| target_iops                      | optional, infrastructure value for EBS iops setting. Should only be use if target_volume_type is one of gp3, io1, or io2. |
+| target_volume_type               | optional, infrastructure value for EBS volume type setting. Required if target_iops is set.                               |
+| target_kms_key_native_id         | optional, infrastructure value for restore AWS KMS key id                                                                 |
 
 
 | Target Input Parameter  RDS      | Description                                                                                                 |
