@@ -94,8 +94,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             'msg': 'IOPS field is not applicable for either source or target volume type.',
             'inputs': {
                 'target_volume_type': target_volume_type,
-                'source_volume_type': source_volume_type
-            }
+                'source_volume_type': source_volume_type,
+            },
         }
 
     # Perform the restore.
@@ -123,7 +123,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     try:
         config.raw_response = True
         client = clumioapi_client.ClumioAPIClient(config)
-        raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(body=request)
+        raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(
+            body=request
+        )
         # Return if non-ok status.
         if not raw_response.ok:
             return {
