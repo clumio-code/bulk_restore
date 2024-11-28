@@ -87,6 +87,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                     'source_az': backup.aws_az,
                     'source_kms': backup.kms_key_native_id,
                     'source_expire_time': backup.expiration_timestamp,
+                    'source_volume_type': backup.volume_type,
                 },
             }
             backup_records.append(backup_record)
