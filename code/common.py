@@ -58,18 +58,19 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function: Callable, api_filter: str, sort: str) -> list:
+def get_total_list(function: Callable, api_filter: str, **kwargs) -> list:
     """Get the list of all items.
 
     Args:
         function: A list API function call with pagination feature.
         api_filter: The filter applied to the list API as a parsable JSON document.
-        sort: The sort applied to the list API.
+        kwargs:
+         - sort: The sorting applied to the list API.
     """
     start = 1
     total_list = []
     while True:
-        raw_response, parsed_response = function(filter=api_filter, sort=sort, start=start)
+        raw_response, parsed_response = function(filter=api_filter, start=start, **kwargs)
         # Raise error if raw response is not ok.
         if not raw_response.ok:
             raise exceptions.clumio_exception.ClumioException(
