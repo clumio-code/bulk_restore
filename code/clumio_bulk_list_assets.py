@@ -38,7 +38,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
-    # List all the EBS volumes.
+    # Get the correct asset listing function based on the resource type.
     list_filter = {'environment_id': {'$eq': env_id}}
     if resource_type == 'EBS':
         list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
@@ -48,6 +48,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         list_function = client.aws_rds_resources_v1.list_aws_rds_resources
     elif resource_type == 'DynamoDB':
         list_function = client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables
+    elif resource_type == 'ProtectionGroup':
+        _, org_unit_response = client.organizational_units_v2.list_organizational_units()
+        ou_id = org_unit_response.embedded.items[0].p_id
+        list_filter = {'organizational_unit_id': {'$in': [ou_id]}}
+        list_function = client.protection_groups_v1.list_protection_groups
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 
@@ -56,9 +61,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     except clumio_exception.ClumioException as e:
         return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
 
-    # List the latest backup for each ebs volume
-    return {
-        'status': 200,
-        'region': region_name,
-        'asset_ids': [asset.p_id for asset in assets_list],
-    }
+    # Return the assets list.
+    if resource_type == 'ProtectionGroup':
+        asset_ids = [asset.name for asset in assets_list]
+    else:
+        asset_ids = [asset.p_id for asset in assets_list]
+    return {'status': 200, 'region': region_name, 'asset_ids': asset_ids}

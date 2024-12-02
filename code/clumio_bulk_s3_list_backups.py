@@ -31,6 +31,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     """Handle the lambda function to bulk list S3 backups."""
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    source_account: str | None = events.get('source_account', None)
+    source_region: str | None = events.get('source_region', None)
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
@@ -54,17 +56,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # List protection group based on the name.
     search_name = events.get('search_pg_name', None)
-    api_filter = '{"name": {"$eq": "' + search_name + '"}}'
-    response = client.protection_groups_v1.list_protection_groups(filter=api_filter)
+    api_filter = {'name': {'$eq': search_name}}
+    response = client.protection_groups_v1.list_protection_groups(filter=json.dumps(api_filter))
     if not response.total_count:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg list'}
     pg_id = response.embedded.items[0].p_id
 
     # List S3 assets based on the bucket names and pg name.
     s3_bucket_names = events.get('search_bucket_names', None)
-    api_filter = '{"protection_group_id": {"$eq": "' + pg_id + '"}}'
+    api_filter = {'protection_group_id': {'$eq': pg_id}}
+    env_resp, env_id = common.get_environment_id(client, source_account, source_region)
+    if source_region and env_resp == common.STATUS_OK:
+        # If region filter is provided, filter per region.
+        api_filter['environment_id'] = {'$eq': env_id}
     response = client.protection_groups_s3_assets_v1.list_protection_group_s3_assets(
-        filter=api_filter
+        filter=json.dumps(api_filter)
     )
     if not response.total_count:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg s3 assets'}
