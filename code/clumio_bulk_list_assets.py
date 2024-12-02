@@ -44,6 +44,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
     elif resource_type == 'EC2':
         list_function = client.aws_ec2_instances_v1.list_aws_ec2_instances
+    elif resource_type == 'RDS':
+        list_function = client.aws_rds_resources_v1.list_aws_rds_resources
+    elif resource_type == 'DynamoDB':
+        list_function = client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 

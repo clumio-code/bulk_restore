@@ -34,7 +34,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
-    end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
+    end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
     object_filters: dict = events.get('search_object_filters', {})
 
     if 'latest_version_only' not in object_filters:

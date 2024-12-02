@@ -84,7 +84,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'backup_record': {
                     'source_backup_id': backup.p_id,
                     'source_volume_id': backup.volume_native_id,
-                    'source_volume_tags': [tag.__dict__ for tag in backup.tags],
+                    'source_volume_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
                     'source_encrypted_flag': backup.is_encrypted,
                     'source_az': backup.aws_az,
                     'source_kms': backup.kms_key_native_id,

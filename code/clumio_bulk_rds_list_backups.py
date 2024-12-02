@@ -45,7 +45,7 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
         'backup_record': {
             'source_backup_id': backup.p_id,
             'source_resource_id': backup.database_native_id,
-            'source_resource_tags': [tag.__dict__ for tag in backup.tags],
+            'source_resource_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
             'source_encrypted_flag': backup.kms_key_native_id == '',
             'source_instances': instances_dict,
             'source_instance_class': instance_class,
@@ -65,10 +65,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_region = events.get('source_region', None)
     search_tag_key = events.get('search_tag_key', None)
     search_tag_value = events.get('search_tag_value', None)
+    search_resource_id: str | None = events.get('search_resource_id', None)
     target = events.get('target', {})
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
-    end_search_day_offset_input = target.get('end_search_day_offset', 10)
+    end_search_day_offset_input = target.get('end_search_day_offset', 0)
 
     # Validate inputs
     try:
@@ -91,13 +92,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.
-    sort, ts_filter = common.get_sort_and_ts_filter(
+    sort, api_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
+    if search_resource_id:
+        api_filter['resource_id'] = {'$eq': search_resource_id}
     try:
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
-            api_filter=json.dumps(ts_filter),
+            api_filter=json.dumps(api_filter),
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
