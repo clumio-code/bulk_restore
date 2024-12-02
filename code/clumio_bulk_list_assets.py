@@ -39,7 +39,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Get the correct asset listing function based on the resource type.
-    list_filter = {'environment_id': {'$eq': env_id}}
+    list_filter: dict = {'environment_id': {'$eq': env_id}}
     if resource_type == 'EBS':
         list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
     elif resource_type == 'EC2':
@@ -57,7 +57,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 
     try:
-        assets_list = common.get_total_list(function=list_function, api_filter=json.dumps(list_filter))
+        assets_list = common.get_total_list(
+            function=list_function, api_filter=json.dumps(list_filter)
+        )
     except clumio_exception.ClumioException as e:
         return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
 

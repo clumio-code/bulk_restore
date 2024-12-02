@@ -1,6 +1,7 @@
 # Copyright 2024, Clumio, a Commvault Company.
 #
 """Lambda function to sort the retrieved list of backups."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any

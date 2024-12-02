@@ -58,7 +58,7 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function: Callable, api_filter: str, **kwargs) -> list:
+def get_total_list(function: Callable, api_filter: str, **kwargs: dict) -> list:
     """Get the list of all items.
 
     Args:
