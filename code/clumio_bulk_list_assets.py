@@ -21,6 +21,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Retrieve and validate the inputs.
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
+    resource_type: str = events.get('resource_type', '')
     region: dict = events.get('region', {})
     region_name: str = region.get('region', '')
     env_id: str = region.get('environment_id', '')
@@ -39,17 +40,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # List all the EBS volumes.
     list_filter = {'environment_id': {'$eq': env_id}}
+    if resource_type == 'EBS':
+        list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
+    elif resource_type == 'EC2':
+        list_function = client.aws_ec2_instances_v1.list_aws_ec2_instances
+    else:
+        return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
+
     try:
-        ebs_vol_list = common.get_total_list(
-            function=client.aws_ebs_volumes_v1.list_aws_ebs_volumes,
-            api_filter=json.dumps(list_filter),
-        )
+        assets_list = common.get_total_list(function=list_function, api_filter=json.dumps(list_filter))
     except clumio_exception.ClumioException as e:
-        return {'status': 401, 'msg': f'List ebs volumes error - {e}'}
+        return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
 
     # List the latest backup for each ebs volume
     return {
         'status': 200,
         'region': region_name,
-        'ebs_volume_ids': [ebs_vol.p_id for ebs_vol in ebs_vol_list],
+        'asset_ids': [asset.p_id for asset in assets_list],
     }
