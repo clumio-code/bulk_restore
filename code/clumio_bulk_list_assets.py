@@ -1,6 +1,6 @@
 # Copyright 2024, Clumio, a Commvault Company.
 #
-"""Lambda function to retrieve the EBS assets of the given environment."""
+"""Lambda function to retrieve the assets of the given environment and resource types."""
 
 from __future__ import annotations
 

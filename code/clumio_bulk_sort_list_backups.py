@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from common import EventsTypeDef
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, list]:
     """Handle the lambda function to sort the retrieved list of backups."""
     backup_lists: list[dict] = events.get('backup_list', [])
     resource_type: str = events.get('resource_type', 'EBS')
