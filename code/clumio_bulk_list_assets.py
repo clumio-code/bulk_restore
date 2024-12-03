@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
-    """Handle the lambda functions to list the ebs assets (volume) given the account id and region."""
+    """Handle the lambda functions to list of the assets given the env and resource type."""
     # Retrieve and validate the inputs.
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
