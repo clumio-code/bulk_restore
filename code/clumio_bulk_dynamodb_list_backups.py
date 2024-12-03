@@ -51,13 +51,12 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
                 'projection': lsi.projection.__dict__,
             }
             lsi_list.append(lsi_dict)
-
     return {
         'table_name': backup.table_name,
         'backup_record': {
             'source_backup_id': backup.p_id,
             'source_table_name': backup.table_name,
-            'source_ddn_tags': [tag.__dict__ for tag in backup.tags],
+            'source_ddn_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
             'source_sse_specification': common.to_dict_or_none(backup.sse_specification),
             'source_provisioned_throughput': common.to_dict_or_none(backup.provisioned_throughput),
             'source_billing_mode': backup.billing_mode,
@@ -79,10 +78,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_region: str | None = events.get('source_region', None)
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
+    search_table_id: str | None = events.get('search_table_id', None)
     target: dict = events.get('target', {})
     search_direction: str = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
-    end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
+    end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not bear:
@@ -105,13 +105,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.
-    sort, ts_filter = common.get_sort_and_ts_filter(
+    sort, api_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
+    if search_table_id:
+        api_filter['table_id'] = {'$eq': search_table_id}
     try:
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_dynamodb_tables_v1.list_backup_aws_dynamodb_tables,
-            api_filter=json.dumps(ts_filter),
+            api_filter=json.dumps(api_filter),
             sort=sort,
         )
     except clumio_exception.ClumioException as e:

@@ -47,7 +47,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
             'SourceKeyPairName': backup.key_pair_name,
             'source_network_interface_list': [ni.__dict__ for ni in backup.network_interfaces],
             'source_ebs_storage_list': ebs_mappings,
-            'source_instance_tags': [tag.__dict__ for tag in backup.tags],
+            'source_instance_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
             'SourceVPCID': backup.vpc_native_id,
             'source_az': backup.aws_az,
             'source_expire_time': backup.expiration_timestamp,
@@ -63,10 +63,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_region: str | None = events.get('source_region', None)
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
+    search_instance_id: str | None = events.get('search_instance_id', None)
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
-    end_search_day_offset_input: int = target.get('end_search_day_offset', 10)
+    end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not bear:
@@ -89,13 +90,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.
-    sort, ts_filter = common.get_sort_and_ts_filter(
+    sort, api_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
+    if search_instance_id:
+        api_filter['instance_id'] = {'$eq': search_instance_id}
     try:
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances,
-            api_filter=json.dumps(ts_filter),
+            api_filter=json.dumps(api_filter),
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
