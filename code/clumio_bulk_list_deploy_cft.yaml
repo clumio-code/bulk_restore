@@ -1,0 +1,931 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Clumio bulk list deployment
+Parameters:
+  LambdaCodeLocationBucket:
+    Description: S3 Bucket that contains the lambda zip file
+    Type: String
+    Default: clumio-bulk-restore
+  LambdaIAMRole:
+    Description: Role to run lambda functions
+    Type: String
+    Default: arn:aws:iam::774032570701:role/774032570701-clumio-automation-role
+  LambdaZipObject:
+    Description: path and name of zip file in LambdaCodeLocationBucket
+    Type: String
+    Default: clumio_bulk_restore.zip
+Resources:
+  ClumioToken:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: "clumio/token/bulk_restore_list"
+      Description: Clumio token for bulk restore
+      SecretString: '{"username":"FillInUserName","token":"FillInToken"}'
+      Tags:
+        - Key: Clumio
+          Value: clumio_bulk_restore_api_token
+  ListRegions:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_list_regions
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_list_regions.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the regions of given account.
+      TracingConfig:
+        Mode: Active
+  ListAssets:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_list_assets
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_list_assets.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the assets of given account, region, and resource type.
+      TracingConfig:
+        Mode: Active
+  ListDDN:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_dynamodb_list_latest_backup
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_dynamodb_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the latest backup for dynamodb
+      TracingConfig:
+        Mode: Active
+  ListEC2:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_ec2_list_latest_backup
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ec2_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the latest backup for ec2
+      TracingConfig:
+        Mode: Active
+  ListRDS:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_rds_list_latest_backup
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_rds_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the latest backup for rds
+      TracingConfig:
+        Mode: Active
+  ListEBS:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_ebs_list_latest_backup
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ebs_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the latest backup for ebs
+      TracingConfig:
+        Mode: Active
+  ListPG:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_s3_list_latest_backup
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_s3_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the latest backup for protection group
+      TracingConfig:
+        Mode: Active
+  SortBackups:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_sort_backup_list
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_sort_list_backup.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to list the assets of given account, region, and resource type.
+      TracingConfig:
+        Mode: Active
+  BulkRestoreStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: clumio-bulk-list-backup-layer
+      RoleArn: !Ref LambdaIAMRole
+      DefinitionString:
+        !Sub
+        - |-
+          {
+            "QueryLanguage": "JSONPath",
+            "Comment": "A description of my state machine",
+            "StartAt": "Lambda List Regions",
+            "States": {
+              "Lambda List Regions": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "Next": "Split Run per Individual Region",
+                "Parameters": {
+                  "FunctionName": "${ListRegions}:$LATEST",
+                  "Payload.$": "$"
+                },
+                "OutputPath": "$.Payload"
+              },
+              "Split Run per Individual Region": {
+                "Type": "Map",
+                "ItemProcessor": {
+                  "ProcessorConfig": {
+                    "Mode": "INLINE"
+                  },
+                  "StartAt": "Split Run per Resource Type",
+                  "States": {
+                    "Split Run per Resource Type": {
+                      "Type": "Map",
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "INLINE"
+                        },
+                        "StartAt": "Pass Input to List Asset",
+                        "States": {
+                          "Pass Input to List Asset": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "region.$": "$.region",
+                              "resource_type.$": "$.resource_type"
+                            },
+                            "Next": "Choose Run by Resource Type"
+                          },
+                          "Choose Run by Resource Type": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.resource_type",
+                                "StringEquals": "EBS",
+                                "Next": "Lambda List EBS Asset"
+                              },
+                              {
+                                "Variable": "$.resource_type",
+                                "StringEquals": "EC2",
+                                "Next": "Lambda List EC2 Asset"
+                              },
+                              {
+                                "Variable": "$.resource_type",
+                                "StringEquals": "RDS",
+                                "Next": "Lambda List RDS Asset"
+                              },
+                              {
+                                "Variable": "$.resource_type",
+                                "StringEquals": "DynamoDB",
+                                "Next": "Lambda List DynamoDB Asset"
+                              },
+                              {
+                                "Variable": "$.resource_type",
+                                "StringEquals": "ProtectionGroup",
+                                "Next": "Lambda List PG Asset"
+                              }
+                            ],
+                            "Default": "Fail Type/List"
+                          },
+                          "Lambda List DynamoDB Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By DynamoDB Asset"
+                          },
+                          "Split Run By DynamoDB Asset": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "INLINE"
+                              },
+                              "StartAt": "Lambda List DynamoDB Latest Backup",
+                              "States": {
+                                "Lambda List DynamoDB Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListDDN}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "Next": "Check for DynamoDB List Backup Throttling"
+                                },
+                                "Check for DynamoDB List Backup Throttling": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "And": [
+                                        {
+                                          "Variable": "$.status",
+                                          "NumericEquals": 401
+                                        },
+                                        {
+                                          "Variable": "$.msg",
+                                          "StringMatches": "*throttling*"
+                                        }
+                                      ],
+                                      "Next": "DynamoDB List Backoff"
+                                    }
+                                  ],
+                                  "Default": "List DynamoDB Backup Success"
+                                },
+                                "List DynamoDB Backup Success": {
+                                  "Type": "Succeed"
+                                },
+                                "DynamoDB List Backoff": {
+                                  "Type": "Wait",
+                                  "Seconds": 1,
+                                  "Next": "Lambda List DynamoDB Latest Backup"
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_table_id.$": "$$.Map.Item.Value",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass DynamoDB List Backup to Sort Lambda"
+                          },
+                          "Pass DynamoDB List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "DynamoDB",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort DynamoDB Backup List"
+                          },
+                          "Lambda Sort DynamoDB Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List RDS Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By RDS Asset"
+                          },
+                          "Split Run By RDS Asset": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "INLINE"
+                              },
+                              "StartAt": "Lambda List RDS Latest Backup",
+                              "States": {
+                                "Lambda List RDS Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListRDS}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "Next": "Check for RDS List Backup Throttling"
+                                },
+                                "Check for RDS List Backup Throttling": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "And": [
+                                        {
+                                          "Variable": "$.status",
+                                          "NumericEquals": 401
+                                        },
+                                        {
+                                          "Variable": "$.msg",
+                                          "StringMatches": "*throttling*"
+                                        }
+                                      ],
+                                      "Next": "RDS List Backoff"
+                                    }
+                                  ],
+                                  "Default": "List RDS Backup Success"
+                                },
+                                "List RDS Backup Success": {
+                                  "Type": "Succeed"
+                                },
+                                "RDS List Backoff": {
+                                  "Type": "Wait",
+                                  "Seconds": 1,
+                                  "Next": "Lambda List RDS Latest Backup"
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_resource_id.$": "$$.Map.Item.Value",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass RDS List Backup to Sort Lambda"
+                          },
+                          "Pass RDS List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "RDS",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort RDS Backup List"
+                          },
+                          "Lambda Sort RDS Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List EBS Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By EBS Asset"
+                          },
+                          "Split Run By EBS Asset": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "INLINE"
+                              },
+                              "StartAt": "Lambda List EBS Latest Backup",
+                              "States": {
+                                "Lambda List EBS Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListEBS}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "Next": "Check for EBS List Backup Throttling"
+                                },
+                                "Check for EBS List Backup Throttling": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "And": [
+                                        {
+                                          "Variable": "$.status",
+                                          "NumericEquals": 401
+                                        },
+                                        {
+                                          "Variable": "$.msg",
+                                          "StringMatches": "*throttling*"
+                                        }
+                                      ],
+                                      "Next": "EBS List Backoff"
+                                    }
+                                  ],
+                                  "Default": "List EBS Backup Success"
+                                },
+                                "List EBS Backup Success": {
+                                  "Type": "Succeed"
+                                },
+                                "EBS List Backoff": {
+                                  "Type": "Wait",
+                                  "Seconds": 1,
+                                  "Next": "Lambda List EBS Latest Backup"
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_volume_id.$": "$$.Map.Item.Value",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass EBS List Backup to Sort Lambda"
+                          },
+                          "Pass EBS List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "EBS",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort EBS Backup List"
+                          },
+                          "Lambda Sort EBS Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Fail Type/List": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "Lambda List EC2 Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By EC2 Asset"
+                          },
+                          "Split Run By EC2 Asset": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "INLINE"
+                              },
+                              "StartAt": "Lambda List EC2 Latest Backup",
+                              "States": {
+                                "Lambda List EC2 Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListEC2}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "Next": "Check for EC2 List Backup Throttling"
+                                },
+                                "Check for EC2 List Backup Throttling": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "And": [
+                                        {
+                                          "Variable": "$.status",
+                                          "NumericEquals": 401
+                                        },
+                                        {
+                                          "Variable": "$.msg",
+                                          "StringMatches": "*throttling*"
+                                        }
+                                      ],
+                                      "Next": "EC2 List Backoff"
+                                    }
+                                  ],
+                                  "Default": "List EC2 Backup Success"
+                                },
+                                "List EC2 Backup Success": {
+                                  "Type": "Succeed"
+                                },
+                                "EC2 List Backoff": {
+                                  "Type": "Wait",
+                                  "Seconds": 1,
+                                  "Next": "Lambda List EC2 Latest Backup"
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_instance_id.$": "$$.Map.Item.Value",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass EC2 List Backup to Sort Lambda"
+                          },
+                          "Pass EC2 List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "EC2",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda EC2 Sort Backup List"
+                          },
+                          "Lambda EC2 Sort Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List PG Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By PG Asset"
+                          },
+                          "Split Run By PG Asset": {
+                            "Type": "Map",
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "INLINE"
+                              },
+                              "StartAt": "Lambda List PG Latest Backup",
+                              "States": {
+                                "Lambda List PG Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListPG}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "Next": "Check for PG List Backup Throttling"
+                                },
+                                "Check for PG List Backup Throttling": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "And": [
+                                        {
+                                          "Variable": "$.status",
+                                          "NumericEquals": 401
+                                        },
+                                        {
+                                          "Variable": "$.msg",
+                                          "StringMatches": "*throttling*"
+                                        }
+                                      ],
+                                      "Next": "PG List Backoff"
+                                    }
+                                  ],
+                                  "Default": "List PG Backup Success"
+                                },
+                                "List PG Backup Success": {
+                                  "Type": "Succeed"
+                                },
+                                "PG List Backoff": {
+                                  "Type": "Wait",
+                                  "Seconds": 1,
+                                  "Next": "Lambda List PG Latest Backup"
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "bear.$": "$$.Execution.Input.bear",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_pg_name.$": "$$.Map.Item.Value",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass PG List Backup to Sort Lambda"
+                          },
+                          "Pass PG List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "ProtectionGroup",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda PG Sort Backup List"
+                          },
+                          "Lambda PG Sort Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Pass Region Backup List",
+                      "ItemsPath": "$.resource_types",
+                      "ItemSelector": {
+                        "resource_type.$": "$$.Map.Item.Value",
+                        "region.$": "$.region"
+                      },
+                      "ResultPath": "$.backup_list"
+                    },
+                    "Pass Region Backup List": {
+                      "Type": "Pass",
+                      "End": true,
+                      "Parameters": {
+                        "region.$": "$.region.region",
+                        "backup_list.$": "$.backup_list"
+                      }
+                    }
+                  }
+                },
+                "ItemsPath": "$.regions",
+                "ItemSelector": {
+                  "region.$": "$$.Map.Item.Value",
+                  "resource_types": [
+                    "EC2",
+                    "EBS",
+                    "ProtectionGroup",
+                    "RDS",
+                    "DynamoDB"
+                  ]
+                },
+                "Next": "Asset Collection per Region Result"
+              },
+              "Asset Collection per Region Result": {
+                "Type": "Pass",
+                "End": true
+              }
+            }
+          }
+Outputs:
+  ClumioTokenArn:
+    Description: Edit this Secret to add your Clumio API Token
+    Value: !Ref ClumioToken
+    Export:
+      Name: ClumioTokenArn
