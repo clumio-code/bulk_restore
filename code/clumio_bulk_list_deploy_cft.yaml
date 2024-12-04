@@ -124,15 +124,15 @@ Resources:
   SortBackups:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_sort_backup_list
+      FunctionName: clumio_bulk_sort_backups_list
       Runtime: python3.12
       Timeout: 60
       Role: !Ref LambdaIAMRole
-      Handler: clumio_bulk_sort_list_backup.lambda_handler
+      Handler: clumio_bulk_sort_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the assets of given account, region, and resource type.
+      Description: Function to sort the assets of based on the region, and resource type.
       TracingConfig:
         Mode: Active
   BulkRestoreStepFunction:
@@ -204,27 +204,27 @@ Resources:
                               {
                                 "Variable": "$.resource_type",
                                 "StringEquals": "EBS",
-                                "Next": "Lambda List EBS Asset"
+                                "Next": "Lambda List EBS Assets"
                               },
                               {
                                 "Variable": "$.resource_type",
                                 "StringEquals": "EC2",
-                                "Next": "Lambda List EC2 Asset"
+                                "Next": "Lambda List EC2 Assets"
                               },
                               {
                                 "Variable": "$.resource_type",
                                 "StringEquals": "RDS",
-                                "Next": "Lambda List RDS Asset"
+                                "Next": "Lambda List RDS Assets"
                               },
                               {
                                 "Variable": "$.resource_type",
                                 "StringEquals": "DynamoDB",
-                                "Next": "Lambda List DynamoDB Asset"
+                                "Next": "Lambda List DynamoDB Assets"
                               },
                               {
                                 "Variable": "$.resource_type",
                                 "StringEquals": "ProtectionGroup",
-                                "Next": "Lambda List PG Asset"
+                                "Next": "Lambda List PG Assets"
                               }
                             ],
                             "Default": "Fail Type/List"
@@ -923,6 +923,15 @@ Resources:
               }
             }
           }
+        - {
+          ListRegionsArn: !GetAtt [ ListRegions, Arn ],
+          ListAssetsArn: !GetAtt [ ListAssets, Arn ],
+          ListDDNArn: !GetAtt [ ListDDN, Arn ],
+          ListEC2Arn: !GetAtt [ ListEC2, Arn ],
+          ListEBSArn: !GetAtt [ ListEBS, Arn ],
+          ListPGArn: !GetAtt [ ListPG, Arn ],
+          SortBackupsArn: !GetAtt [ SortBackups, Arn ],
+        }
 Outputs:
   ClumioTokenArn:
     Description: Edit this Secret to add your Clumio API Token
