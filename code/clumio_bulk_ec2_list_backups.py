@@ -32,12 +32,14 @@ if TYPE_CHECKING:
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     """Convert backup record object to dictionary."""
     ebs_mappings = []
+    kms_key_native_id = ''
     for ebs_vol in backup.attached_backup_ebs_volumes:
         ebs_mapping = ebs_vol.__dict__
         ebs_mapping['id'] = ebs_mapping.pop('p_id')
         ebs_mapping['type'] = ebs_mapping.pop('p_type')
         ebs_mapping['tags'] = [tag.__dict__ for tag in ebs_mapping['tags']]
         ebs_mappings.append(ebs_mapping)
+        kms_key_native_id = ebs_vol.kms_key_native_id
     return {
         'instance_id': backup.instance_id,
         'backup_record': {
@@ -51,6 +53,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
             'SourceVPCID': backup.vpc_native_id,
             'source_az': backup.aws_az,
             'source_expire_time': backup.expiration_timestamp,
+            'source_kms': kms_key_native_id,
         },
     }
 
