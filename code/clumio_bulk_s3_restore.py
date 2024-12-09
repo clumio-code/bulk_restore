@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 import common
 from clumioapi import clumioapi_client, configuration, models
+from clumioapi.exceptions import clumio_exception
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -47,7 +48,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the bucket id.
@@ -57,34 +58,40 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'name': {'$in': [target_bucket]},
     }
 
-    response = client.aws_s3_buckets_v1.list_aws_s3_buckets(filter=json.dumps(api_filter))
-    if response.total_count == 0:
-        return {'status': 207, 'msg': 'no target bucket found.', 'inputs': target}
-    target_bucket_id = response.embedded.items[0].p_id
-    target_env_id = response.embedded.items[0].environment_id
+    try:
+        s3_buckets = common.get_total_list(
+            function=client.aws_s3_buckets_v1.list_aws_s3_buckets,
+            api_filter=json.dumps(api_filter)
+        )
+        if s3_buckets == 0:
+            return {'status': 207, 'msg': 'no target bucket found.', 'inputs': target}
+        target_bucket_id = s3_buckets[0].p_id
+        target_env_id = s3_buckets[0].environment_id
 
-    source_input = models.protection_group_restore_source.ProtectionGroupRestoreSource(
-        backup_id=record['backup_id'],
-        object_filters=models.source_object_filters.SourceObjectFilters(**record['object_filters']),
-        protection_group_s3_asset_ids=record['protection_group_s3_asset_ids'],
-    )
-    target_input = models.protection_group_restore_target.ProtectionGroupRestoreTarget(
-        bucket_id=target_bucket_id,
-        environment_id=target_env_id,
-        overwrite=True,
-        restore_original_storage_class=True,
-        prefix=target_prefix,
-    )
-    req_body = models.restore_protection_group_v1_request.RestoreProtectionGroupV1Request(
-        source=source_input, target=target_input
-    )
-    response = client.restored_protection_groups_v1.restore_protection_group(body=req_body)
-    if not response.task_id:
-        return {'status': 207, 'msg': 'restore failed', 'inputs': target}
-    inputs = {
-        'resource_type': 'S3',
-        'task': response.task_id,
-        'source_backup_id': record['backup_id'],
-        'target': target,
-    }
-    return {'status': 200, 'inputs': inputs, 'msg': 'completed'}
+        source_input = models.protection_group_restore_source.ProtectionGroupRestoreSource(
+            backup_id=record['backup_id'],
+            object_filters=models.source_object_filters.SourceObjectFilters(**record['object_filters']),
+            protection_group_s3_asset_ids=record['protection_group_s3_asset_ids'],
+        )
+        target_input = models.protection_group_restore_target.ProtectionGroupRestoreTarget(
+            bucket_id=target_bucket_id,
+            environment_id=target_env_id,
+            overwrite=True,
+            restore_original_storage_class=True,
+            prefix=target_prefix,
+        )
+        req_body = models.restore_protection_group_v1_request.RestoreProtectionGroupV1Request(
+            source=source_input, target=target_input
+        )
+        _, response = client.restored_protection_groups_v1.restore_protection_group(body=req_body)
+        if not response.task_id:
+            return {'status': 207, 'msg': 'restore failed', 'inputs': target}
+        inputs = {
+            'resource_type': 'S3',
+            'task': response.task_id,
+            'source_backup_id': record['backup_id'],
+            'target': target,
+        }
+        return {'status': 200, 'inputs': inputs, 'msg': 'completed'}
+    except clumio_exception.ClumioException as e:
+        return {'status': 401, 'msg': f'List pg assets error - {e}'}

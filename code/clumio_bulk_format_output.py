@@ -3,19 +3,14 @@
 """Lambda function to format the output of the listing layer."""
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
-
-import common
-from clumioapi import clumioapi_client, configuration
-from clumioapi.exceptions import clumio_exception
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext):
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to format the output of the listing layer."""
     # Retrieve and validate the inputs.
     total_backup_lists: list[dict] = events.get('total_backup_lists', [])
@@ -47,6 +42,9 @@ def format_record_per_resource_type(
         'source_account': '',
         'source_region': source_region,
         'search_direction': 'before',
+        'search_tag_key': '',
+        'search_tag_value': '',
+        'start_search_day_offset': 0,
         'end_search_day_offset': 0,
         'target_account': target_specs['target_account']
     }
@@ -85,6 +83,9 @@ def format_record_per_resource_type(
             'source_iam_instance_profile_name'
         ]
         kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record['source_kms']
+        sg_id = resource_target_specs.get('target_security_group_native_id', None) or backup_record[
+            'source_security_group_native_ids'
+        ]
         record.update({
             'search_instance_id': backup['instance_id'],
             'target_region': region,
@@ -93,7 +94,8 @@ def format_record_per_resource_type(
             'target_subnet_native_id': subnet_id,
             'target_kms_key_native_id': kms,
             'target_iam_instance_profile_name': iam_name,
-            'target_key_pair_name': key_pair
+            'target_key_pair_name': key_pair,
+            'target_security_group_native_ids': sg_id
         })
     elif resource_type == 'DynamoDB':
         record.update({

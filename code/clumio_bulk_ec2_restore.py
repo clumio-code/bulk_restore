@@ -34,7 +34,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     bear = events.get('bear', None)
     target_account = events.get('target', {}).get('target_account', None)
     target_region = events.get('target', {}).get('target_region', None)
-    debug_input = events.get('debug', None)
     target_az = events.get('target_az', None)
     target_iam_instance_profile_name = events.get('target', {}).get(
         'target_iam_instance_profile_name', None
@@ -55,13 +54,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'source_instance_id': None,
     }
 
-    # Validate inputs
-    try:
-        debug = int(debug_input)
-    except ValueError as e:
-        error = f'invalid debug: {e}'
-        return {'status': 401, 'task': None, 'msg': f'failed {error}', 'inputs': inputs}
-
     if len(record) == 0:
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
@@ -78,7 +70,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if base_url:
         ec2_restore_api.set_url_prefix(base_url)
     ec2_restore_api.set_token(bear)
-    ec2_restore_api.set_debug(debug)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
 
     if record:
@@ -87,14 +78,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     else:
         error = f'invalid backup record {record}'
         return {'status': 402, 'msg': f'failed {error}', 'inputs': inputs}
-    # new_tag_identifier = [
-    #    {"key": "InstanceToScanStatus", "value": "enable"},
-    #    {"key": "OrginalInstanceId", "value": source_instance_id},
-    #    {"key": "OriginalBackupId", "value": source_backup_id},
-    #    {"key": "ClumioTaskToken", "value": run_token}
-    # ]
-    # ec2_restore_api.add_ec2_tag_to_instance(new_tag_identifier)
-    # Set restore target information
 
     target = {
         'account': target_account,
@@ -112,7 +95,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         error_msgs = ec2_restore_api.get_error_msg()
         msgs_string = ':'.join(error_msgs)
         return {'status': 404, 'msg': msgs_string, 'inputs': inputs}
-    print(f'target set status {result_target}')
     # Run restore
     ec2_restore_api.save_restore_task()
     [result_run, msg] = ec2_restore_api.ec2_restore_from_record([record])
@@ -120,8 +102,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if result_run:
         # Get a list of tasks for all of the restores.
         task_list = ec2_restore_api.get_restore_task_list()
-        if debug > 5:  # noqa: PLR2004
-            print(task_list)
         task = task_list[0].get('task', None)
         inputs = {
             'resource_type': 'EC2',

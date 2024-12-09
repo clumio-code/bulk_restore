@@ -34,6 +34,7 @@ build:
 	pip install -r requirements.txt -t build/lambda/
 	cd build/lambda && zip -r ../clumio_bulk_restore.zip .
 	cp code/clumio_bulk_restore_deploy_cft.yaml build/
+	cp code/clumio_bulk_list_deploy_cft.yaml build/
 
 # Install the dependencies locally.
 install:

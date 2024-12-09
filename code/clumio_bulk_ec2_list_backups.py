@@ -40,6 +40,9 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
         ebs_mapping['tags'] = [tag.__dict__ for tag in ebs_mapping['tags']]
         ebs_mappings.append(ebs_mapping)
         kms_key_native_id = ebs_vol.kms_key_native_id
+    security_group_native_ids = []
+    for eni in backup.network_interfaces:
+        security_group_native_ids.extend(eni.security_group_native_ids)
     return {
         'instance_id': backup.instance_id,
         'backup_record': {
@@ -54,6 +57,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
             'source_az': backup.aws_az,
             'source_expire_time': backup.expiration_timestamp,
             'source_kms': kms_key_native_id,
+            'source_security_group_native_ids': security_group_native_ids,
         },
     }
 
