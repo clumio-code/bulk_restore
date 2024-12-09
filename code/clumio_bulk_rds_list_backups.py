@@ -53,7 +53,7 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
             'source_subnet_group_name': backup.subnet_group_name,
             'source_kms': backup.kms_key_native_id,
             'source_expire_time': backup.expiration_timestamp,
-            'source_security_group_native_ids': backup.security_group_native_ids
+            'source_security_group_native_ids': backup.security_group_native_ids,
         },
     }
 

@@ -1,6 +1,7 @@
 # Copyright 2024, Clumio, a Commvault Company.
 #
 """Lambda function to format the output of the listing layer."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -34,7 +35,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
 
 def format_record_per_resource_type(
-        backup: dict, resource_type: str, source_region: str, target_specs: dict
+    backup: dict, resource_type: str, source_region: str, target_specs: dict
 ) -> dict[str, Any]:
     """Format the backup record based on their resource type."""
     record = {
@@ -46,7 +47,7 @@ def format_record_per_resource_type(
         'search_tag_value': '',
         'start_search_day_offset': 0,
         'end_search_day_offset': 0,
-        'target_account': target_specs['target_account']
+        'target_account': target_specs['target_account'],
     }
     resource_target_specs = target_specs[resource_type]
     backup_record = backup.get('backup_record', {})
@@ -63,62 +64,85 @@ def format_record_per_resource_type(
         # Check the correctness of volume_type and iops
         if iops not in [0, None] and volume_type not in ['gp3', 'io1', 'io2']:
             raise ValueError
-        record.update({
-            'search_volume_id': backup['volume_id'],
-            'target_region': region,
-            'target_az': az,
-            'target_volume_type': volume_type,
-            'target_iops': iops,
-            'target_kms_key_native_id': kms,
-        })
+        record.update(
+            {
+                'search_volume_id': backup['volume_id'],
+                'target_region': region,
+                'target_az': az,
+                'target_volume_type': volume_type,
+                'target_iops': iops,
+                'target_kms_key_native_id': kms,
+            }
+        )
     elif resource_type == 'EC2':
         az = resource_target_specs.get('target_az', None) or backup_record.get('source_az', None)
-        vpc_id = resource_target_specs.get(
-            'target_vpc_native_id', None
-        ) or backup_record.get('SourceVPCID', None)
-        source_subnet = backup_record['source_network_interface_list'][0]['network_interface_native_id']
+        vpc_id = resource_target_specs.get('target_vpc_native_id', None) or backup_record.get(
+            'SourceVPCID', None
+        )
+        source_subnet = backup_record['source_network_interface_list'][0][
+            'network_interface_native_id'
+        ]
         subnet_id = resource_target_specs.get('target_subnet_native_id', None) or source_subnet
-        key_pair = resource_target_specs.get('target_key_pair_name', None) or backup_record['SourceKeyPairName']
-        iam_name = resource_target_specs.get('target_iam_instance_profile_name', None) or backup_record[
-            'source_iam_instance_profile_name'
-        ]
-        kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record['source_kms']
-        sg_id = resource_target_specs.get('target_security_group_native_id', None) or backup_record[
-            'source_security_group_native_ids'
-        ]
-        record.update({
-            'search_instance_id': backup['instance_id'],
-            'target_region': region,
-            'target_az': az,
-            'target_vpc_native_id': vpc_id,
-            'target_subnet_native_id': subnet_id,
-            'target_kms_key_native_id': kms,
-            'target_iam_instance_profile_name': iam_name,
-            'target_key_pair_name': key_pair,
-            'target_security_group_native_ids': sg_id
-        })
+        key_pair = (
+            resource_target_specs.get('target_key_pair_name', None)
+            or backup_record['SourceKeyPairName']
+        )
+        iam_name = (
+            resource_target_specs.get('target_iam_instance_profile_name', None)
+            or backup_record['source_iam_instance_profile_name']
+        )
+        kms = (
+            resource_target_specs.get('target_kms_key_native_id', None)
+            or backup_record['source_kms']
+        )
+        sg_id = (
+            resource_target_specs.get('target_security_group_native_id', None)
+            or backup_record['source_security_group_native_ids']
+        )
+        record.update(
+            {
+                'search_instance_id': backup['instance_id'],
+                'target_region': region,
+                'target_az': az,
+                'target_vpc_native_id': vpc_id,
+                'target_subnet_native_id': subnet_id,
+                'target_kms_key_native_id': kms,
+                'target_iam_instance_profile_name': iam_name,
+                'target_key_pair_name': key_pair,
+                'target_security_group_native_ids': sg_id,
+            }
+        )
     elif resource_type == 'DynamoDB':
-        record.update({
-            'search_table_id': backup_record['source_table_id'],
-            'target_region': region,
-            'change_set_name': resource_target_specs['change_set_name']
-        })
+        record.update(
+            {
+                'search_table_id': backup_record['source_table_id'],
+                'target_region': region,
+                'change_set_name': resource_target_specs['change_set_name'],
+            }
+        )
     elif resource_type == 'RDS':
-        subnet_group = resource_target_specs.get('target_subnet_group_name', None) or backup_record[
-            'source_subnet_group_name'
-        ]
-        kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record['source_kms']
-        sg_id = resource_target_specs.get('target_security_group_native_id', None) or backup_record[
-            'source_security_group_native_ids'
-        ]
-        record.update({
-            'search_resource_id': backup['resource_id'],
-            'target_region': region,
-            'target_subnet_group_name': subnet_group,
-            'target_rds_name': resource_target_specs.get('target_rds_name'),
-            'target_kms_key_native_id': kms,
-            'target_security_group_native_ids': sg_id
-        })
+        subnet_group = (
+            resource_target_specs.get('target_subnet_group_name', None)
+            or backup_record['source_subnet_group_name']
+        )
+        kms = (
+            resource_target_specs.get('target_kms_key_native_id', None)
+            or backup_record['source_kms']
+        )
+        sg_id = (
+            resource_target_specs.get('target_security_group_native_id', None)
+            or backup_record['source_security_group_native_ids']
+        )
+        record.update(
+            {
+                'search_resource_id': backup['resource_id'],
+                'target_region': region,
+                'target_subnet_group_name': subnet_group,
+                'target_rds_name': resource_target_specs.get('target_rds_name'),
+                'target_kms_key_native_id': kms,
+                'target_security_group_native_ids': sg_id,
+            }
+        )
     elif resource_type == 'ProtectionGroup':
         record.update(resource_target_specs)
     else:

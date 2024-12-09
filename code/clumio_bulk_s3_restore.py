@@ -57,8 +57,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
     try:
         s3_buckets = common.get_total_list(
-            function=client.aws_s3_buckets_v1.list_aws_s3_buckets,
-            api_filter=json.dumps(api_filter)
+            function=client.aws_s3_buckets_v1.list_aws_s3_buckets, api_filter=json.dumps(api_filter)
         )
         if s3_buckets == 0:
             return {'status': 207, 'msg': 'no target bucket found.', 'inputs': target}
@@ -67,7 +66,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
         source_input = models.protection_group_restore_source.ProtectionGroupRestoreSource(
             backup_id=record['backup_id'],
-            object_filters=models.source_object_filters.SourceObjectFilters(**record['object_filters']),
+            object_filters=models.source_object_filters.SourceObjectFilters(
+                **record['object_filters']
+            ),
             protection_group_s3_asset_ids=record['protection_group_s3_asset_ids'],
         )
         target_input = models.protection_group_restore_target.ProtectionGroupRestoreTarget(

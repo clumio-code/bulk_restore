@@ -79,13 +79,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             api_filter=json.dumps(api_filter),
         )
         if not pg_assets:
-            return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg s3 assets'}
+            return {
+                'status': 207,
+                'records': [],
+                'target': target,
+                'msg': 'empty set of pg s3 assets',
+            }
         if not s3_bucket_names:
             asset_ids = [item.p_id for item in pg_assets]
         else:
-            asset_ids = [
-                item.p_id for item in pg_assets if item.bucket_name in s3_bucket_names
-            ]
+            asset_ids = [item.p_id for item in pg_assets if item.bucket_name in s3_bucket_names]
 
         # List pg backups based on the time filter and pg id filter.
         sort, api_filter = common.get_sort_and_ts_filter(
@@ -95,7 +98,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         raw_backup_records = common.get_total_list(
             function=client.backup_protection_groups_v1.list_backup_protection_groups,
             api_filter=json.dumps(api_filter),
-            sort=sort
+            sort=sort,
         )
         if not raw_backup_records:
             return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
