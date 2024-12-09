@@ -158,16 +158,17 @@ CloudFormation Template when you deploy the solution.
 | target_kms_key_native_id         | optional, infrastructure value for RDS AWS KMS key id                                                       |
 
 
-| Target Input Parameter  EC2      | Description                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------   |
-| target_account                   | AWS account where the ebs resource is to be restored                                                        |
-| target_region                    | AWS region where the ebs resource is to be restored                                                         |
-| target_aws_az                    | required, infrastructure value for restore AWS AZ                                                           |
-| target_vpc_native_id             | required, infrastructure value for EC2 VPC id                                                               |
-| target_subnet_native_id          | required, infrastructure value for EC2 Subnet id                                                            |
-| target_kms_key_native_id         | optional, infrastructure value for EC2 AWS KMS key id                                                       |
-| target_iam_instance_profile_name | optional, infrastructure value for EC2 IAM instance profile name                                            |
-| target_key_pair_name             | optional, infrastructure value for EC2 Key pair name                                                        |
+| Target Input Parameter  EC2      | Description                                                      |
+| -------------------------------- |------------------------------------------------------------------|
+| target_account                   | AWS account where the ebs resource is to be restored             |
+| target_region                    | AWS region where the ebs resource is to be restored              |
+| target_aws_az                    | required, infrastructure value for restore AWS AZ                |
+| target_vpc_native_id             | required, infrastructure value for EC2 VPC id                    |
+| target_subnet_native_id          | required, infrastructure value for EC2 Subnet id                 |
+| target_kms_key_native_id         | optional, infrastructure value for EC2 AWS KMS key id            |
+| target_iam_instance_profile_name | optional, infrastructure value for EC2 IAM instance profile name |
+| target_key_pair_name             | optional, infrastructure value for EC2 Key pair name             |
+| target_security_group_native_id  | optional, infrastructure value for EC2 Security Group List       |                                                                                                             |
 
 
 | Target Input Parameter DynamoDB  | Description                                                                                                 |

@@ -1,6 +1,6 @@
 {
   "bear": "",
-  "debug": 99,
+  "base_url": "https://systest-8-uw-2-backend.api.qe.clum.io/api/",
   "RestoreGroups": [
     {
       "ResourceType": "EC2",

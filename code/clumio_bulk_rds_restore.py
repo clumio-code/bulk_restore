@@ -56,7 +56,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
     run_token = common.generate_random_string()
 
@@ -98,9 +98,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'source_resource_id': source_resource_id,
     }
     try:
-        # Use raw response to catch request error.
-        config.raw_response = True
-        client = clumioapi_client.ClumioAPIClient(config)
         raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(
             body=request
         )
