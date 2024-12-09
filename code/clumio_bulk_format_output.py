@@ -46,7 +46,7 @@ def format_record_per_resource_type(
         'ResourceType': resource_type,
         'source_account': '',
         'source_region': source_region,
-        'search_direction': 'after',
+        'search_direction': 'before',
         'end_search_day_offset': 0,
         'target_account': target_specs['target_account']
     }
@@ -54,10 +54,14 @@ def format_record_per_resource_type(
     backup_record = backup.get('backup_record', {})
     region = resource_target_specs.get('target_region', '') or source_region
     if resource_type == 'EBS':
-        az = resource_target_specs['target_az'] or backup_record.get('source_az', None)
-        volume_type = resource_target_specs['target_volume_type'] or backup_record.get('source_volume_type', None)
-        iops = resource_target_specs['target_iops'] or backup_record.get('source_iops', 0)
-        kms = resource_target_specs['target_kms_key_native_id'] or backup_record.get('source_kms', None)
+        az = resource_target_specs.get('target_az', None) or backup_record.get('source_az', None)
+        volume_type = resource_target_specs.get('target_volume_type', None) or backup_record.get(
+            'source_volume_type', None
+        )
+        iops = resource_target_specs.get('target_iops', 0) or backup_record.get('source_iops', 0)
+        kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record.get(
+            'source_kms', None
+        )
         # Check the correctness of volume_type and iops
         if iops not in [0, None] and volume_type not in ['gp3', 'io1', 'io2']:
             raise ValueError
@@ -70,7 +74,7 @@ def format_record_per_resource_type(
             'target_kms_key_native_id': kms,
         })
     elif resource_type == 'EC2':
-        az = resource_target_specs['target_az'] or backup_record.get('source_az', None)
+        az = resource_target_specs.get('target_az', None) or backup_record.get('source_az', None)
         vpc_id = resource_target_specs.get(
             'target_vpc_native_id', None
         ) or backup_record.get('SourceVPCID', None)
