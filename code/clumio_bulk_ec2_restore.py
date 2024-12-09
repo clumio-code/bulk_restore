@@ -54,7 +54,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'source_instance_id': None,
     }
 
-    if len(record) == 0:
+    if not record:
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.

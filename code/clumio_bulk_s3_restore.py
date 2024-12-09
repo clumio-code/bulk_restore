@@ -59,7 +59,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         s3_buckets = common.get_total_list(
             function=client.aws_s3_buckets_v1.list_aws_s3_buckets, api_filter=json.dumps(api_filter)
         )
-        if s3_buckets == 0:
+        if not s3_buckets:
             return {'status': 207, 'msg': 'no target bucket found.', 'inputs': target}
         target_bucket_id = s3_buckets[0].p_id
         target_env_id = s3_buckets[0].environment_id
