@@ -178,6 +178,14 @@ CloudFormation Template when you deploy the solution.
 | change_set_name                  | required, infrastructure value for DynamoDB table name component                                            |
 
 
+| Target Input Parameter ProtectionGroup | Description                                                                       |
+|----------------------------------------|-----------------------------------------------------------------------------------|
+| search_pg_name                         | Required. The name of protection group that the restore is going to be done from. |
+| target_bucket                          | Required. The name of the bucket that the resource will be restored to.           |
+| search_bucket_names                    | Optional. The list of bucket names within the protection group to be restored.    |
+| search_object_filters                  | Optional. A specification dict to filter the objects to restore.                  |
+| target_prefix                          | Optional. The prefix to add to the restored object.                               |
+
 > [!NOTE]
 > Optional infrastructure target values may still be required based upon the
 > configuration of the original backed up resource.

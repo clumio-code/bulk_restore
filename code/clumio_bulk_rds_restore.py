@@ -32,12 +32,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     bear: str | None = events.get('bear', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     target: dict = events.get('target', {})
-    target_account: str = target.get('target_account', None)
-    target_region: str = target.get('target_region', None)
-    target_security_group_native_ids: list = target.get('target_security_group_native_ids', None)
-    target_kms_key_native_id: str = target.get('target_kms_key_native_id', None)
-    target_subnet_group_name: str = target.get('target_subnet_group_name', None)
-    target_rds_name: str = target.get('target_rds_name', None)
+    target_account: str | None = target.get('target_account', None)
+    target_region: str | None = target.get('target_region', None)
+    target_security_group_native_ids: list | None = target.get(
+        'target_security_group_native_ids', None
+    )
+    target_kms_key_native_id: str | None = target.get('target_kms_key_native_id', None)
+    target_subnet_group_name: str | None = target.get('target_subnet_group_name', None)
+    target_rds_name: str = target.get('target_rds_name', '')
 
     inputs: dict[str, Any] = {'resource_type': 'RDS'}
 
