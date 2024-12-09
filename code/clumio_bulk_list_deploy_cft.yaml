@@ -135,6 +135,20 @@ Resources:
       Description: Function to sort the assets of based on the region, and resource type.
       TracingConfig:
         Mode: Active
+  FormatOutput:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_format_output
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_format_output.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to format the output of the upper layer.
+      TracingConfig:
+        Mode: Active
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
@@ -915,11 +929,40 @@ Resources:
                     "DynamoDB"
                   ]
                 },
-                "Next": "Asset Collection per Region Result"
+                "Next": "Lambda Format Output"
               },
-              "Asset Collection per Region Result": {
-                "Type": "Pass",
-                "End": true
+              "Lambda Format Output": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "OutputPath": "$.Payload",
+                "Parameters": {
+                  "FunctionName": "${FormatOutput}:$LATEST",
+                  "Payload": {
+                    "total_backup_lists.$": "$",
+                    "target_specs.$": "$$.Execution.Input.target_specs",
+                    "source_account.$": "$$.Execution.Input.source_account"
+                  }
+                },
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "End": true,
+                "ResultSelector": {
+                  "bear.$": "$$.Execution.Input.bear",
+                  "base_url.$": "$$.Execution.Input.base_url",
+                  "RestoreGroups.$": "$.Payload.RestoreGroup"
+                }
               }
             }
           }
@@ -931,10 +974,11 @@ Resources:
           ListEBSArn: !GetAtt [ ListEBS, Arn ],
           ListPGArn: !GetAtt [ ListPG, Arn ],
           SortBackupsArn: !GetAtt [ SortBackups, Arn ],
+          FormatOutputArn: !GetAtt [ FormatOutput, Arn],
         }
 Outputs:
   ClumioTokenArn:
     Description: Edit this Secret to add your Clumio API Token
     Value: !Ref ClumioToken
     Export:
-      Name: ClumioTokenArn
+      Name: ClumioTokenListArn

@@ -65,7 +65,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
     run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
 
@@ -88,7 +88,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         error = f'invalid target_iops input: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
     p_type = target_volume_type or source_volume_type
-    if target_iops is not None and p_type not in IOPS_APPLICABLE_TYPE:
+    if target_iops and p_type not in IOPS_APPLICABLE_TYPE:
         return {
             'status': 400,
             'msg': 'IOPS field is not applicable for either source or target volume type.',
@@ -121,7 +121,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        config.raw_response = True
         client = clumioapi_client.ClumioAPIClient(config)
         raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(
             body=request

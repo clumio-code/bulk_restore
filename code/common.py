@@ -58,7 +58,7 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function: Callable, api_filter: str, **kwargs: dict) -> list:
+def get_total_list(function: Callable, api_filter: str, **kwargs: Any) -> list:
     """Get the list of all items.
 
     Args:
@@ -101,7 +101,7 @@ def get_environment_id(
         'account_native_id': {'$eq': target_account},
         'aws_region': {'$eq': target_region},
     }
-    response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
+    _, response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
     if not response.current_count:
         return 402, 'No authorized environment found.'
     return 200, response.embedded.items[0].p_id

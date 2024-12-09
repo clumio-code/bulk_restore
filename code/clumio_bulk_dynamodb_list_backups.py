@@ -55,6 +55,7 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
         'table_name': backup.table_name,
         'backup_record': {
             'source_backup_id': backup.p_id,
+            'source_table_id': backup.table_id,
             'source_table_name': backup.table_name,
             'source_ddn_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
             'source_sse_specification': common.to_dict_or_none(backup.sse_specification),
