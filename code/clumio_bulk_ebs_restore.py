@@ -88,7 +88,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         error = f'invalid target_iops input: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
     p_type = target_volume_type or source_volume_type
-    if target_iops is not None and p_type not in IOPS_APPLICABLE_TYPE:
+    if target_iops and p_type not in IOPS_APPLICABLE_TYPE:
         return {
             'status': 400,
             'msg': 'IOPS field is not applicable for either source or target volume type.',

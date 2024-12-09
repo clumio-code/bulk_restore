@@ -35,7 +35,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target: dict = events.get('target', {})
     record: dict = events.get('record', {})
     target_account: str | None = target.get('target_account', None)
-    target_region: str | None = target.get('target_region', None)
     target_bucket: str | None = target.get('target_bucket', None)
     target_prefix: str | None = target.get('target_prefix', None)
 
@@ -54,10 +53,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Retrieve the bucket id.
     api_filter = {
         'account_native_id': {'$eq': target_account},
-        'aws_region': {'$eq': target_region},
         'name': {'$in': [target_bucket]},
     }
-
     try:
         s3_buckets = common.get_total_list(
             function=client.aws_s3_buckets_v1.list_aws_s3_buckets,
@@ -94,4 +91,4 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         }
         return {'status': 200, 'inputs': inputs, 'msg': 'completed'}
     except clumio_exception.ClumioException as e:
-        return {'status': 401, 'msg': f'List pg assets error - {e}'}
+        return {'status': 401, 'msg': f'Error - {e}'}
