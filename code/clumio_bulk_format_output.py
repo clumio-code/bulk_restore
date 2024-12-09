@@ -20,6 +20,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext):
     # Retrieve and validate the inputs.
     total_backup_lists: list[dict] = events.get('total_backup_lists', [])
     target_specs: dict[str, Any] = events.get('target_specs', [])
+    source_account: str = events.get('source_account', '')
 
     restore_group: list[dict] = []
     for region_backup_list in total_backup_lists:
@@ -31,6 +32,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext):
                 record = format_record_per_resource_type(
                     backup_record, resource_type, source_region, target_specs
                 )
+                record['source_account'] = source_account
                 restore_group.append(record)
 
     return {'status': 200, 'RestoreGroup': restore_group}
@@ -60,6 +62,7 @@ def format_record_per_resource_type(
         if iops not in [0, None] and volume_type not in ['gp3', 'io1', 'io2']:
             raise ValueError
         record.update({
+            'search_volume_id': backup['volume_id'],
             'target_region': region,
             'target_az': az,
             'target_volume_type': volume_type,
@@ -73,12 +76,13 @@ def format_record_per_resource_type(
         ) or backup_record.get('SourceVPCID', None)
         source_subnet = backup_record['source_network_interface_list'][0]['network_interface_native_id']
         subnet_id = resource_target_specs.get('target_subnet_native_id', None) or source_subnet
-        key_pair = resource_target_specs['target_key_pair_name'] or backup_record['SourceKeyPairName']
-        iam_name = resource_target_specs['target_iam_instance_profile_name'] or backup_record[
+        key_pair = resource_target_specs.get('target_key_pair_name', None) or backup_record['SourceKeyPairName']
+        iam_name = resource_target_specs.get('target_iam_instance_profile_name', None) or backup_record[
             'source_iam_instance_profile_name'
         ]
-        kms = resource_target_specs['target_kms_key_native_id'] or backup_record['source_kms']
+        kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record['source_kms']
         record.update({
+            'search_instance_id': backup['instance_id'],
             'target_region': region,
             'target_az': az,
             'target_vpc_native_id': vpc_id,
@@ -87,22 +91,30 @@ def format_record_per_resource_type(
             'target_iam_instance_profile_name': iam_name,
             'target_key_pair_name': key_pair
         })
+    elif resource_type == 'DynamoDB':
+        record.update({
+            'search_table_id': backup_record['source_table_id'],
+            'target_region': region,
+            'change_set_name': resource_target_specs['change_set_name']
+        })
+    elif resource_type == 'RDS':
+        subnet_group = resource_target_specs.get('target_subnet_group_name', None) or backup_record[
+            'source_subnet_group_name'
+        ]
+        kms = resource_target_specs.get('target_kms_key_native_id', None) or backup_record['source_kms']
+        sg_id = resource_target_specs.get('target_security_group_native_id', None) or backup_record[
+            'source_security_group_native_ids'
+        ]
+        record.update({
+            'search_resource_id': backup['resource_id'],
+            'target_region': region,
+            'target_subnet_group_name': subnet_group,
+            'target_rds_name': resource_target_specs.get('target_rds_name'),
+            'target_kms_key_native_id': kms,
+            'target_security_group_native_ids': sg_id
+        })
+    elif resource_type == 'ProtectionGroup':
+        record.update(resource_target_specs)
     else:
         return {}
     return record
-
-
-# def format_ec2_record(resource_target_specs, backup_record):
-#     az = resource_target_specs['target_az'] or backup_record.get('source_az', None)
-#     vpc_native_id = resource_target_specs.get(
-#         'target_vpc_native_id', None
-#     ) or backup_record.get('SourceVPCID', None)
-#     subnet_native_id = resource_target_specs.get('target_subnet_native_id', None)
-#     record.update({
-#         'target_region': region,
-#         'target_az': az,
-#         'target_volume_type': volume_type,
-#         'target_iops': iops,
-#         'target_kms_key_native_id': kms,
-#     })
-
