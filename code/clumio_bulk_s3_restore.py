@@ -69,7 +69,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             object_filters=models.source_object_filters.SourceObjectFilters(
                 **record['object_filters']
             ),
-            protection_group_s3_asset_ids=record['protection_group_s3_asset_ids'],
+            protection_group_s3_asset_ids=record['pg_asset_ids'],
         )
         target_input = models.protection_group_restore_target.ProtectionGroupRestoreTarget(
             bucket_id=target_bucket_id,
