@@ -145,6 +145,9 @@ def format_record_per_resource_type(
         )
     elif resource_type == 'ProtectionGroup':
         record.update(resource_target_specs)
+        record.update(
+            {'search_pg_name': backup['pg_name'], 'search_bucket_names': backup['pg_bucket_names']}
+        )
     else:
         return {}
     return record

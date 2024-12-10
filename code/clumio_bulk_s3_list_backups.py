@@ -87,6 +87,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             }
         if not s3_bucket_names:
             asset_ids = [item.p_id for item in pg_assets]
+            s3_bucket_names = [item.bucket_name for item in pg_assets]
         else:
             asset_ids = [item.p_id for item in pg_assets if item.bucket_name in s3_bucket_names]
 
@@ -108,7 +109,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             records.append(
                 {
                     'backup_id': item.p_id,
-                    'protection_group_s3_asset_ids': asset_ids,
+                    'pg_name': search_name,
+                    'pg_asset_ids': asset_ids,
+                    'pg_bucket_names': s3_bucket_names,
                     'object_filters': object_filters,
                 }
             )
