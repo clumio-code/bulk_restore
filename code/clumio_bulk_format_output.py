@@ -40,7 +40,6 @@ def format_record_per_resource_type(
     """Format the backup record based on their resource type."""
     record = {
         'ResourceType': resource_type,
-        'source_account': '',
         'source_region': source_region,
         'search_direction': 'before',
         'search_tag_key': '',
@@ -80,7 +79,7 @@ def format_record_per_resource_type(
             'SourceVPCID', None
         )
         source_subnet = backup_record['source_network_interface_list'][0][
-            'network_interface_native_id'
+            'subnet_native_id'
         ]
         subnet_id = resource_target_specs.get('target_subnet_native_id', None) or source_subnet
         key_pair = (
