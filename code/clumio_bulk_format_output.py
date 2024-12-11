@@ -76,7 +76,7 @@ def format_record_per_resource_type(
     elif resource_type == 'EC2':
         az = resource_target_specs.get('target_az', None) or backup_record.get('source_az', None)
         vpc_id = resource_target_specs.get('target_vpc_native_id', None) or backup_record.get(
-            'SourceVPCID', None
+            'source_vpc_id', None
         )
         source_subnet = backup_record['source_network_interface_list'][0][
             'subnet_native_id'
@@ -84,7 +84,7 @@ def format_record_per_resource_type(
         subnet_id = resource_target_specs.get('target_subnet_native_id', None) or source_subnet
         key_pair = (
             resource_target_specs.get('target_key_pair_name', None)
-            or backup_record['SourceKeyPairName']
+            or backup_record['source_key_pair_name']
         )
         iam_name = (
             resource_target_specs.get('target_iam_instance_profile_name', None)

@@ -118,11 +118,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         environment_id=target_env_id,
         iam_instance_profile_name=target_iam_instance_profile_name or None,
         tags=common.tags_from_dict(backup_record['source_instance_tags']),
-        key_pair_name=target_key_pair_name or backup_record['SourceKeyPairName'],
+        key_pair_name=target_key_pair_name or backup_record['source_key_pair_name'],
         network_interfaces=network_interfaces,
         subnet_native_id=subnet_native_id,
         should_power_on=True,
-        vpc_native_id=target_vpc_native_id or backup_record['SourceVPCID']
+        vpc_native_id=target_vpc_native_id or backup_record['source_vpc_id']
     )
     restore_target = models.ec2_restore_target.EC2RestoreTarget(
         instance_restore_target=instance_restore_target,
