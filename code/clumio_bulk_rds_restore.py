@@ -71,7 +71,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_env_id = result_msg
 
     # Perform the restore.
-    source = models.rds_resource_restore_source.RdsResourceRestoreSource(
+    restore_source = models.rds_resource_restore_source.RdsResourceRestoreSource(
         backup=models.rds_resource_restore_source_air_gap_options.RdsResourceRestoreSourceAirGapOptions(
             backup_id=source_backup_id
         )
@@ -79,15 +79,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     restore_target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
         environment_id=target_env_id,
         instance_class=backup_record['source_instance_class'],
-        is_publicly_accessible=backup_record['source_is_publicly_accessible'],
-        kms_key_native_id=target_kms_key_native_id,
+        is_publicly_accessible=backup_record['source_is_publicly_accessible'] or None,
+        kms_key_native_id=target_kms_key_native_id or None,
         name=f'{source_resource_id}{target_rds_name}',
-        security_group_native_ids=target_security_group_native_ids,
-        subnet_group_name=target_subnet_group_name,
+        security_group_native_ids=target_security_group_native_ids or None,
+        subnet_group_name=target_subnet_group_name or None,
         tags=common.tags_from_dict(backup_record['source_resource_tags']),
     )
     request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
-        source=source,
+        source=restore_source,
         target=restore_target,
     )
     inputs = {
