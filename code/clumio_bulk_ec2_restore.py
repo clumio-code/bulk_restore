@@ -35,13 +35,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_account = target.get('target_account', None)
     target_region = target.get('target_region', None)
     target_az = events.get('target_az', None)
-    target_iam_instance_profile_name = target.get(
-        'target_iam_instance_profile_name', None
-    )
+    target_iam_instance_profile_name = target.get('target_iam_instance_profile_name', None)
     target_key_pair_name = target.get('target_key_pair_name', None)
-    target_security_group_native_ids = target.get(
-        'target_security_group_native_ids', None
-    )
+    target_security_group_native_ids = target.get('target_security_group_native_ids', None)
     target_subnet_native_id = target.get('target_subnet_native_id', None)
     target_vpc_native_id = target.get('target_vpc_native_id', None)
     target_kms_key_native_id = target.get('target_kms_key_native_id', None)
@@ -85,16 +81,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_env_id = result_msg
 
     # Perform the restore.
-    restore_source = models.ec2_restore_source.EC2RestoreSource(
-        backup_id=source_backup_id
-    )
+    restore_source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
     ebs_mapping = [
         models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
             kms_key_native_id=ebs_storage['kms_key_native_id'] or target_kms_key_native_id,
             name=ebs_storage['name'],
             volume_native_id=ebs_storage['volume_native_id'],
-            tags=common.tags_from_dict(ebs_storage['tags'])
-        ) for ebs_storage in backup_record.get('source_ebs_storage_list', [])
+            tags=common.tags_from_dict(ebs_storage['tags']),
+        )
+        for ebs_storage in backup_record.get('source_ebs_storage_list', [])
     ]
     network_interfaces = []
     subnet_native_id = target_subnet_native_id
@@ -104,9 +99,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             models.ec2_restore_network_interface.EC2RestoreNetworkInterface(
                 device_index=interface['device_index'],
                 network_interface_native_id='',
-                security_group_native_ids=target_security_group_native_ids or interface[
-                    'security_group_native_ids'
-                ],
+                security_group_native_ids=target_security_group_native_ids
+                or interface['security_group_native_ids'],
                 subnet_native_id=subnet_native_id,
                 restore_default=True,
                 restore_from_backup=False,
@@ -122,7 +116,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         network_interfaces=network_interfaces,
         subnet_native_id=subnet_native_id,
         should_power_on=True,
-        vpc_native_id=target_vpc_native_id or backup_record['source_vpc_id']
+        vpc_native_id=target_vpc_native_id or backup_record['source_vpc_id'],
     )
     restore_target = models.ec2_restore_target.EC2RestoreTarget(
         instance_restore_target=instance_restore_target,
