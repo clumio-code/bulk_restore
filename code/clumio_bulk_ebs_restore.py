@@ -16,8 +16,6 @@
 
 from __future__ import annotations
 
-import random
-import string
 from typing import TYPE_CHECKING, Any, Final
 
 import common
@@ -67,7 +65,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
     client = clumioapi_client.ClumioAPIClient(config)
-    run_token = ''.join(random.choices(string.ascii_letters, k=13))  # noqa: S311
+    run_token = common.generate_random_string()
 
     backup_record = record.get('backup_record', {})
     source_backup_id = backup_record.get('source_backup_id', None)
@@ -121,7 +119,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        client = clumioapi_client.ClumioAPIClient(config)
         raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(
             body=request
         )
