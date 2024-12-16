@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import secrets
 import string
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
@@ -29,6 +30,7 @@ DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
 DEFAULT_SECRET_PATH: Final = 'clumio/token/bulk_restore'
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
+MAX_RETRY: Final = 5
 
 
 def parse_base_url(base_url: str) -> str:
@@ -101,7 +103,16 @@ def get_environment_id(
         'account_native_id': {'$eq': target_account},
         'aws_region': {'$eq': target_region},
     }
-    _, response = client.aws_environments_v1.list_aws_environments(filter=json.dumps(env_filter))
+    retry = 0
+    response = None
+    while retry < MAX_RETRY:
+        _, response = client.aws_environments_v1.list_aws_environments(
+            filter=json.dumps(env_filter)
+        )
+        if response:
+            break
+        time.sleep(1)
+        retry += 1
     if not response.current_count:
         return 402, 'No authorized environment found.'
     return 200, response.embedded.items[0].p_id

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-MUST_FILLED_INPUT: Final = "This field must be filled."
+MUST_FILLED_INPUT: Final = '[This field must be filled]'
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -19,7 +19,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     total_backup_lists: list[dict] = events.get('total_backup_lists', [])
     target_specs: dict[str, Any] = events.get('target_specs', {})
     source_account: str = events.get('source_account', '')
-    target_account: str = target_specs.get('target_account','')
+    target_account: str = target_specs.get('target_account', '')
     if target_account and target_account != source_account:
         is_diff_account = True
     else:
@@ -60,16 +60,20 @@ def format_record_per_resource_type(
     backup_record = backup.get('backup_record', {})
     region = resource_target_specs.get('target_region', '') or source_region
     if resource_type == 'EBS':
-        output_record.update({
-            'search_volume_id': backup['volume_id'],
-            'target_region': region,
-        })
+        output_record.update(
+            {
+                'search_volume_id': backup['volume_id'],
+                'target_region': region,
+            }
+        )
         output_record.update(get_target_specs_ebs(resource_target_specs, backup_record))
     elif resource_type == 'EC2':
-        output_record.update({
-            'search_instance_id': backup['instance_id'],
-            'target_region': region,
-        })
+        output_record.update(
+            {
+                'search_instance_id': backup['instance_id'],
+                'target_region': region,
+            }
+        )
         output_record.update(
             get_target_specs_ec2(resource_target_specs, backup_record, is_diff_account)
         )
@@ -97,7 +101,7 @@ def format_record_per_resource_type(
     elif resource_type == 'ProtectionGroup':
         output_record.update(resource_target_specs)
         if not target_specs.get('target_bucket', None):
-            output_record['target_record'] = MUST_FILLED_INPUT
+            output_record['target_bucket'] = MUST_FILLED_INPUT
         output_record.update(
             {'search_pg_name': backup['pg_name'], 'search_bucket_names': backup['pg_bucket_names']}
         )
@@ -109,9 +113,7 @@ def format_record_per_resource_type(
 def get_target_specs_ebs(specs: dict[str, Any], record: dict[str, Any]) -> dict:
     """Get or inherit the detailed target specs for EBS asset."""
     az = specs.get('target_az', None) or record.get('source_az', None)
-    volume_type = specs.get('target_volume_type', None) or record.get(
-        'source_volume_type', None
-    )
+    volume_type = specs.get('target_volume_type', None) or record.get('source_volume_type', None)
     iops = specs.get('target_iops', 0) or record.get('source_iops', 0)
     kms = specs.get('target_kms_key_native_id', None) or record.get('source_kms', None)
     # Check the correctness of volume_type and iops
@@ -126,7 +128,7 @@ def get_target_specs_ebs(specs: dict[str, Any], record: dict[str, Any]) -> dict:
 
 
 def get_target_specs_ec2(
-        specs: dict[str, Any], record: dict[str, Any], is_diff_account: bool
+    specs: dict[str, Any], record: dict[str, Any], is_diff_account: bool
 ) -> dict:
     """Get or inherit the detailed target specs for EC2 asset."""
     az = specs.get('target_az', None) or record.get('source_az', None)
@@ -143,7 +145,10 @@ def get_target_specs_ec2(
         subnet_id = subnet_id or source_subnet
         sg_id = sg_id or record['source_security_group_native_ids']
     key_pair = specs.get('target_key_pair_name', None) or record['source_key_pair_name']
-    iam_name = specs.get('target_iam_instance_profile_name', None) or record['source_iam_instance_profile_name']
+    iam_name = (
+        specs.get('target_iam_instance_profile_name', None)
+        or record['source_iam_instance_profile_name']
+    )
     kms = specs.get('target_kms_key_native_id', None) or record['source_kms']
     return {
         'target_az': az,
