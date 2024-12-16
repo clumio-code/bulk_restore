@@ -21,6 +21,7 @@ from utils import dates
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
     StatusAndMsgTypeDef = tuple[int, str]
+    from clumioapi.models.list_aws_environments_response import ListAWSEnvironmentsResponse
 
     class ListingCallable(Protocol):
         def __call__(self, filter: str | None, sort: str | None, start: int) -> Any: ...
@@ -28,9 +29,10 @@ if TYPE_CHECKING:
 
 DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
 DEFAULT_SECRET_PATH: Final = 'clumio/token/bulk_restore'
+ERROR_CODE: Final = 402
+MAX_RETRY: Final = 5
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
-MAX_RETRY: Final = 5
 
 
 def parse_base_url(base_url: str) -> str:
@@ -94,17 +96,17 @@ def get_environment_id(
 ) -> StatusAndMsgTypeDef:
     """Retrieve the environment for given target_account and target_region."""
     if not target_account:
-        return 402, 'target_account is required'
+        return ERROR_CODE, 'target_account is required'
 
     if not target_region:
-        return 402, 'target_region is required.'
+        return ERROR_CODE, 'target_region is required.'
 
     env_filter = {
         'account_native_id': {'$eq': target_account},
         'aws_region': {'$eq': target_region},
     }
     retry = 0
-    response = None
+    response: ListAWSEnvironmentsResponse | None = None
     while retry < MAX_RETRY:
         _, response = client.aws_environments_v1.list_aws_environments(
             filter=json.dumps(env_filter)
@@ -113,8 +115,10 @@ def get_environment_id(
             break
         time.sleep(1)
         retry += 1
-    if not response.current_count:
-        return 402, 'No authorized environment found.'
+    if not response:
+        return ERROR_CODE, 'Error when listing the aws environments.'
+    elif not response.current_count:
+        return ERROR_CODE, 'No authorized environment found.'
     return 200, response.embedded.items[0].p_id
 
 
