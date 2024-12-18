@@ -237,7 +237,6 @@ Resources:
                       "Next": "Lambda List RDS Backups",
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
-                        "debug.$": "$$.Execution.Input.debug",
                         "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
@@ -296,7 +295,6 @@ Resources:
                             "Next": "Lambda Restore RDS",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
@@ -341,7 +339,6 @@ Resources:
                             "Next": "Lambda Clumio Check Task Status RDS",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
@@ -424,7 +421,6 @@ Resources:
                       "Next": "Lambda List EC2 Backups",
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
-                        "debug.$": "$$.Execution.Input.debug",
                         "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
@@ -483,7 +479,6 @@ Resources:
                             "Next": "Lambda Restore EC2",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target",
@@ -536,7 +531,6 @@ Resources:
                             "Next": "Lambda Clumio Check Task Status EC2",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
@@ -609,7 +603,6 @@ Resources:
                       "Next": "Lambda List DynamoDB Backups",
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
-                        "debug.$": "$$.Execution.Input.debug",
                         "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
@@ -668,7 +661,6 @@ Resources:
                             "Next": "Lambda Restore DynamoDB",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
@@ -718,7 +710,6 @@ Resources:
                             "Next": "Lambda Clumio Check Task Status DynamoDB",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
@@ -786,7 +777,6 @@ Resources:
                       "Next": "Lambda List EBS Backups",
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
-                        "debug.$": "$$.Execution.Input.debug",
                         "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "source_account.$": "$.target.source_account",
@@ -845,7 +835,6 @@ Resources:
                             "Next": "Lambda Restore EBS",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
@@ -895,7 +884,6 @@ Resources:
                             "Next": "Lambda Clumio Check Task Status EBS",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             }
@@ -963,7 +951,6 @@ Resources:
                       "Next": "Lambda List PG Backups",
                       "Parameters": {
                         "bear.$": "$$.Execution.Input.bear",
-                        "debug.$": "$$.Execution.Input.debug",
                         "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "search_pg_name.$": "$.target.search_pg_name",
@@ -1018,7 +1005,6 @@ Resources:
                             "Type": "Pass",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "record.$": "$.record",
                               "target.$": "$.target"
@@ -1063,7 +1049,6 @@ Resources:
                             "Type": "Pass",
                             "Parameters": {
                               "bear.$": "$$.Execution.Input.bear",
-                              "debug.$": "$$.Execution.Input.debug",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "inputs.$": "$.inputs"
                             },
