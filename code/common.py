@@ -33,6 +33,8 @@ ERROR_CODE: Final = 402
 MAX_RETRY: Final = 5
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
+MUST_FILLED_INPUT: Final = '[This field must be filled]'
+FOLLOW_DEFAULT_INPUT: Final = '[This field will follow default input]'
 
 
 def parse_base_url(base_url: str) -> str:

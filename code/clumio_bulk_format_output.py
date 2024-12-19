@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Final
 
+import common
+
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
-
-MUST_FILLED_INPUT: Final = '[This field must be filled]'
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -40,7 +40,29 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 record['target_account'] = target_account
                 restore_group.append(record)
 
-    return {'status': 200, 'RestoreGroup': restore_group}
+    return {
+        'status': 200,
+        'RestoreGroup': restore_group,
+        'Note':
+            """The default inputs are the required values for the restore to work.
+To overwrite it's value, specify the value in the asset details.""",
+        'DefaultInput': {
+            'RDS': {
+                'target_subnet_group_name': '',
+                'target_rds_name': '',
+                'target_kms_key_native_id': '',
+                'target_security_group_native_ids': '',
+            },
+            'EC2': {
+                'target_vpc_native_id': '',
+                'target_subnet_native_id': '',
+                'target_security_group_native_ids': '',
+            },
+            'S3': {
+               'target_bucket': ''
+            },
+        }
+    }
 
 
 def format_record_per_resource_type(
@@ -79,8 +101,7 @@ def format_record_per_resource_type(
         )
     elif resource_type == 'DynamoDB':
         changed_name = resource_target_specs.get('change_set_name', None)
-        if not is_diff_account:
-            changed_name = changed_name or MUST_FILLED_INPUT
+        changed_name = changed_name or common.generate_random_string(4)
         output_record.update(
             {
                 'search_table_id': backup_record['source_table_id'],
@@ -101,7 +122,7 @@ def format_record_per_resource_type(
     elif resource_type == 'ProtectionGroup':
         output_record.update(resource_target_specs)
         if not target_specs.get('target_bucket', None):
-            output_record['target_bucket'] = MUST_FILLED_INPUT
+            output_record['target_bucket'] = common.FOLLOW_DEFAULT_INPUT
         output_record.update(
             {'search_pg_name': backup['pg_name'], 'search_bucket_names': backup['pg_bucket_names']}
         )
@@ -136,9 +157,9 @@ def get_target_specs_ec2(
     subnet_id = specs.get('target_subnet_native_id', None)
     sg_id = specs.get('target_security_group_native_id', None)
     if is_diff_account:
-        vpc_id = vpc_id or MUST_FILLED_INPUT
-        subnet_id = subnet_id or MUST_FILLED_INPUT
-        sg_id = sg_id or MUST_FILLED_INPUT
+        vpc_id = vpc_id or common.FOLLOW_DEFAULT_INPUT
+        subnet_id = subnet_id or common.FOLLOW_DEFAULT_INPUT
+        sg_id = sg_id or common.FOLLOW_DEFAULT_INPUT
     else:
         vpc_id = vpc_id or record.get('source_vpc_id', None)
         source_subnet = record['source_network_interface_list'][0]['subnet_native_id']
@@ -170,14 +191,14 @@ def get_target_specs_rds(
     sg_id = specs.get('target_security_group_native_id', None)
     target_name = specs.get('target_rds_name')
     if is_diff_account:
-        subnet_group = subnet_group or MUST_FILLED_INPUT
-        kms = kms or MUST_FILLED_INPUT
-        sg_id = sg_id or MUST_FILLED_INPUT
+        subnet_group = subnet_group or common.FOLLOW_DEFAULT_INPUT
+        kms = kms or common.FOLLOW_DEFAULT_INPUT
+        sg_id = sg_id or common.FOLLOW_DEFAULT_INPUT
     else:
         subnet_group = subnet_group or record['source_subnet_group_name']
         kms = kms or record['source_kms']
         sg_id = sg_id or record['source_security_group_native_ids']
-        target_name = target_name or MUST_FILLED_INPUT
+        target_name = target_name or common.FOLLOW_DEFAULT_INPUT
     return {
         'target_subnet_group_name': subnet_group,
         'target_rds_name': target_name,
