@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 DEFAULT_BASE_URL: Final = 'https://us-west-2.api.clumio.com/'
-DEFAULT_SECRET_PATH: Final = 'clumio/token/bulk_restore'
+DEFAULT_SECRET_PATH: Final = 'clumio/token/bulk_restore'  # noqa: S105
 ERROR_CODE: Final = 402
 MAX_RETRY: Final = 5
 START_TIMESTAMP_STR: Final = 'start_timestamp'
