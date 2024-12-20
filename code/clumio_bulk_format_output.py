@@ -45,18 +45,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'RestoreGroup': restore_group,
         'Note':
             """The default inputs are the required values for the restore to work.
-To overwrite it's value, specify the value in the asset details.""",
+To overwrite its value, specify the value in the asset details.""",
         'DefaultInput': {
             'RDS': {
                 'target_subnet_group_name': '',
                 'target_rds_name': '',
                 'target_kms_key_native_id': '',
-                'target_security_group_native_ids': '',
+                'target_security_group_native_ids': [],
             },
             'EC2': {
                 'target_vpc_native_id': '',
                 'target_subnet_native_id': '',
-                'target_security_group_native_ids': '',
+                'target_security_group_native_ids': [],
             },
             'S3': {
                'target_bucket': ''

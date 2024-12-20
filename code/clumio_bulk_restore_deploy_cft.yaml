@@ -23,6 +23,20 @@ Resources:
       Tags:
         - Key: Clumio
           Value: clumio_bulk_restore_api_token
+  ValidateInput:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_validate_input
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_validate_input.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: clumio_bulk_validate_input
+      TracingConfig:
+        Mode: Active
   Task:
     Type: AWS::Lambda::Function
     Properties:
@@ -187,11 +201,42 @@ Resources:
         - |-
           {
             "Comment": "Clumio Bulk Restore",
-            "StartAt": "Initial Values of all Input Groups and Run Inputs",
+            "StartAt": "Lmbda Validate Input",
             "States": {
-              "Initial Values of all Input Groups and Run Inputs": {
-                "Type": "Pass",
-                "Next": "Split Runs by Input Groups"
+              "Lmbda Validate Input": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "OutputPath": "$.Payload",
+                "Parameters": {
+                  "Payload.$": "$",
+                  "FunctionName": "arn:aws:lambda:us-west-2:222467901403:function:clumio_bulk_validate_input:$LATEST"
+                },
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "Next": "Check Validation Input"
+              },
+              "Check Validation Input": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.status",
+                    "NumericEquals": 200,
+                    "Next": "Split Runs by Input Groups"
+                  }
+                ],
+                "Default": "Bulk Restore Summary"
               },
               "Split Runs by Input Groups": {
                 "Type": "Map",
@@ -1134,6 +1179,7 @@ Resources:
             }
           }
         - {
+          ValidateInputArn: !GetAtt [ValidateInput, Arn],
           ListRDSArn: !GetAtt [ListRDS, Arn],
           RestoreRDSArn: !GetAtt [RestoreRDS, Arn],
           ListEC2Arn: !GetAtt [ListEC2, Arn],

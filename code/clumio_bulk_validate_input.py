@@ -24,7 +24,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         required_inputs = default_input.get(resource_type, {})
         for field, value in required_inputs.items():
             if not value:
-                # If the required field is not filled, then
+                # If the required field is not filled, then return error.
                 return {
                     'status': 400,
                     'msg': f'The required input {field} for resource type {resource_type} should be filled.'
