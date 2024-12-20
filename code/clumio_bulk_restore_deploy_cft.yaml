@@ -209,7 +209,7 @@ Resources:
                 "OutputPath": "$.Payload",
                 "Parameters": {
                   "Payload.$": "$",
-                  "FunctionName": "arn:aws:lambda:us-west-2:222467901403:function:clumio_bulk_validate_input:$LATEST"
+                  "FunctionName": "{$ValidateInput}:$LATEST"
                 },
                 "Retry": [
                   {
