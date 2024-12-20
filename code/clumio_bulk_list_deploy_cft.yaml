@@ -960,7 +960,9 @@ Resources:
                 "ResultSelector": {
                   "bear.$": "$$.Execution.Input.bear",
                   "base_url.$": "$$.Execution.Input.base_url",
-                  "RestoreGroups.$": "$.Payload.RestoreGroup"
+                  "RestoreGroups.$": "$.Payload.RestoreGroup",
+                  "Note.$": "$.Payload.Note",
+                  "DefaultInput.$": "$.Payload.DefaultInput"
                 }
               }
             }
