@@ -201,15 +201,15 @@ Resources:
         - |-
           {
             "Comment": "Clumio Bulk Restore",
-            "StartAt": "Lmbda Validate Input",
+            "StartAt": "Lambda Validate Input",
             "States": {
-              "Lmbda Validate Input": {
+              "Lambda Validate Input": {
                 "Type": "Task",
                 "Resource": "arn:aws:states:::lambda:invoke",
                 "OutputPath": "$.Payload",
                 "Parameters": {
                   "Payload.$": "$",
-                  "FunctionName": "{$ValidateInput}:$LATEST"
+                  "FunctionName": "${ValidateInput}:$LATEST"
                 },
                 "Retry": [
                   {
