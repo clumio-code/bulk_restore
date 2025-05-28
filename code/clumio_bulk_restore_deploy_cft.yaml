@@ -4,11 +4,11 @@ Parameters:
   LambdaCodeLocationBucket:
     Description: S3 Bucket that contains the lambda zip file
     Type: String
-    Default: 774032570701-clumio-automation
+    Default: clumio-bulk-restore
   LambdaIAMRole:
     Description: Role to run lambda functions
     Type: String
-    Default: arn:aws:iam::774032570701:role/774032570701-clumio-automation-role
+    Default: arn:aws:iam::774032570701:role/clumio-bulk-restore-role
   LambdaZipObject:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
