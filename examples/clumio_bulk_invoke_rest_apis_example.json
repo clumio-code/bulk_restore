@@ -1,0 +1,7 @@
+{
+  "bear": "",
+  "base_url": "https://systest-8-uw-2-backend.api.qe.clum.io/api/",
+  "endpoint": "list_aws_environments",
+  "filters": {"account_native_id": {"$eq": "176278461234"}},
+  "limit": 100
+}
