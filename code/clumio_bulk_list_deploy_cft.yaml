@@ -8,7 +8,7 @@ Parameters:
   LambdaIAMRole:
     Description: Role to run lambda functions
     Type: String
-    Default: arn:aws:iam::774032570701:role/774032570701-clumio-automation-role
+    Default: arn:aws:iam::774032570701:role/clumio-bulk-restore-role
   LambdaZipObject:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
@@ -23,6 +23,20 @@ Resources:
       Tags:
         - Key: Clumio
           Value: clumio_bulk_restore_api_token
+  InvokeAPI:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: clumio_bulk_invoke_rest_apis
+      Runtime: python3.12
+      Timeout: 60
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_invoke_rest_apis.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Ref LambdaZipObject
+      Description: Function to invoke various Clumio REST APIs.
+      TracingConfig:
+        Mode: Active
   ListRegions:
     Type: AWS::Lambda::Function
     Properties:
