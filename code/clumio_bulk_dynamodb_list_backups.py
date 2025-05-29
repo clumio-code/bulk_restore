@@ -81,7 +81,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_value: str | None = events.get('search_tag_value', None)
     search_table_id: str | None = events.get('search_table_id', None)
     target: dict = events.get('target', {})
-    search_direction: str = target.get('search_direction', None)
+    search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
