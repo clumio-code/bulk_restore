@@ -31,6 +31,15 @@ def get_endpoint_mappings(
         'list_aws_dynamodb_tables': client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables(
             filter=filters_str, limit=limit
         ),
+        'list_aws_ebs_volumes': client.aws_ebs_volumes_v1.list_aws_ebs_volumes(
+            filter=filters_str, limit=limit
+        ),
+        'list_aws_ec2_instances': client.aws_ec2_instances_v1.list_aws_ec2_instances(
+            filter=filters_str, limit=limit
+        ),
+        'list_aws_rds_resources': client.aws_rds_resources_v1.list_aws_rds_resources(
+            filter=filters_str, limit=limit
+        ),
         'list_aws_s3_buckets': client.aws_s3_buckets_v1.list_aws_s3_buckets(
             filter=filters_str, limit=limit
         ),
@@ -44,6 +53,15 @@ def get_endpoint_mappings(
             filter=filters_str, limit=limit
         ),
         'list_backup_protection_groups': client.backup_protection_groups_v1.list_backup_protection_groups(
+            filter=filters_str, limit=limit
+        ),
+        'list_backup_aws_ebs_volumes': client.backup_aws_ebs_volumes_v2.list_backup_aws_ebs_volumes(
+            filter=filters_str, limit=limit
+        ),
+        'list_backup_aws_ec2_instances': client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances(
+            filter=filters_str, limit=limit
+        ),
+        'list_backup_aws_rds_resources': client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources(
             filter=filters_str, limit=limit
         ),
     }
@@ -60,11 +78,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 list_aws_environments
                 list_aws_connections
                 list_aws_dynamodb_tables
+                list_aws_ebs_volumes
+                list_aws_ec2_instances
+                list_aws_rds_resources
                 list_aws_s3_buckets
                 list_protection_groups
                 list_protection_group_s3_assets
                 list_backup_aws_dynamodb_tables
                 list_backup_protection_groups
+                list_backup_aws_ebs_volumes
+                list_backup_aws_ec2_instances
+                list_backup_aws_rds_resources
             filters: Filters to apply to the API request.
             limit: The maximum number of results to return. Defaults to 100.
         context: The AWS Lambda context object.
