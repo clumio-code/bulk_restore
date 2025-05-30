@@ -38,9 +38,7 @@ FOLLOW_DEFAULT_INPUT: Final = '[This field will follow default input]'
 
 def parse_base_url(base_url: str) -> str:
     """Parse the base URL."""
-    if not base_url.startswith('https://'):
-        return base_url
-    return base_url.split('/', maxsplit=3)[2]
+    return base_url.removeprefix('https://')
 
 
 def get_sort_and_ts_filter(
