@@ -134,9 +134,6 @@ def get_target_specs_ebs(specs: dict[str, Any], record: dict[str, Any]) -> dict:
     volume_type = specs.get('target_volume_type', None) or record.get('source_volume_type', None)
     iops = specs.get('target_iops', 0) or record.get('source_iops', 0)
     kms = specs.get('target_kms_key_native_id', None) or record.get('source_kms', None)
-    # Check the correctness of volume_type and iops
-    if iops not in [0, None] and volume_type not in ['gp3', 'io1', 'io2']:
-        raise ValueError
     return {
         'target_az': az,
         'target_volume_type': volume_type,
@@ -163,9 +160,8 @@ def get_target_specs_ec2(
         subnet_id = subnet_id or source_subnet
         sg_id = sg_id or record['source_security_group_native_ids']
     key_pair = specs.get('target_key_pair_name', None) or record['source_key_pair_name']
-    iam_name = (
-        specs.get('target_iam_instance_profile_name', None)
-        or record['source_iam_instance_profile_name']
+    iam_name = specs.get('target_iam_instance_profile_name', None) or record.get(
+        'source_iam_instance_profile_name', None
     )
     kms = specs.get('target_kms_key_native_id', None) or record['source_kms']
     return {

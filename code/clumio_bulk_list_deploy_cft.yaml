@@ -28,7 +28,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_invoke_rest_apis
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_invoke_rest_apis.lambda_handler
       Code:
@@ -42,7 +42,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_list_regions
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 120
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_list_regions.lambda_handler
       Code:
@@ -56,7 +56,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_list_assets
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_list_assets.lambda_handler
       Code:
@@ -70,7 +70,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_dynamodb_list_latest_backup
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_dynamodb_list_backups.lambda_handler
       Code:
@@ -84,7 +84,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ec2_list_latest_backup
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ec2_list_backups.lambda_handler
       Code:
@@ -98,7 +98,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_rds_list_latest_backup
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_rds_list_backups.lambda_handler
       Code:
@@ -112,7 +112,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ebs_list_latest_backup
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ebs_list_backups.lambda_handler
       Code:
@@ -126,7 +126,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_s3_list_latest_backup
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_s3_list_backups.lambda_handler
       Code:
@@ -140,7 +140,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_sort_backups_list
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 120
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_sort_list_backups.lambda_handler
       Code:
@@ -154,7 +154,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_format_output
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 120
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_format_output.lambda_handler
       Code:

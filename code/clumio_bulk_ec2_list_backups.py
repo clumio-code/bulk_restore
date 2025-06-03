@@ -37,7 +37,12 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
         ebs_mapping = ebs_vol.__dict__
         ebs_mapping['id'] = ebs_mapping.pop('p_id')
         ebs_mapping['type'] = ebs_mapping.pop('p_type')
-        ebs_mapping['tags'] = [tag.__dict__ for tag in ebs_mapping['tags']]
+        if ebs_mapping['tags']:
+            # Convert tags to a list of dictionaries if they exist.
+            ebs_mapping['tags'] = [aws_tag.__dict__ for aws_tag in ebs_mapping['tags']]
+        else:
+            # If no tags, set to an empty list.
+            ebs_mapping['tags'] = []
         ebs_mappings.append(ebs_mapping)
         kms_key_native_id = ebs_vol.kms_key_native_id
     security_group_native_ids = []
@@ -48,7 +53,8 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
         'backup_record': {
             'source_backup_id': backup.p_id,
             'source_ami_id': backup.ami.ami_native_id,
-            'source_iam_instance_profile_name': backup.iam_instance_profile,
+            # TODO: Uncomment when Clumio supports instance profile.
+            # 'source_iam_instance_profile_name': backup.iam_instance_profile,
             'source_key_pair_name': backup.key_pair_name,
             'source_network_interface_list': [ni.__dict__ for ni in backup.network_interfaces],
             'source_ebs_storage_list': ebs_mappings,

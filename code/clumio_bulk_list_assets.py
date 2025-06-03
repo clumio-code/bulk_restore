@@ -50,8 +50,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         list_function = client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables
     elif resource_type == 'ProtectionGroup':
         _, org_unit_response = client.organizational_units_v2.list_organizational_units()
-        ou_id = org_unit_response.embedded.items[0].p_id
-        list_filter = {'organizational_unit_id': {'$in': [ou_id]}}
+        if org_unit_response:
+            ou_id = org_unit_response.embedded.items[0].p_id
+            list_filter = {'organizational_unit_id': {'$in': [ou_id]}}
         list_function = client.protection_groups_v1.list_protection_groups
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
