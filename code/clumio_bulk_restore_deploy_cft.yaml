@@ -28,7 +28,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_validate_input
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 120
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_validate_input.lambda_handler
       Code:
@@ -42,7 +42,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_retrieve_restore_task
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_retrieve_restore_task.lambda_handler
       Code:
@@ -56,7 +56,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_dynamodb_list_backups
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_dynamodb_list_backups.lambda_handler
       Code:
@@ -70,7 +70,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_dynamodb_restore
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_dynamodb_restore.lambda_handler
       Code:
@@ -84,7 +84,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ec2_list_backups
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ec2_list_backups.lambda_handler
       Code:
@@ -98,7 +98,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ec2_restore
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ec2_restore.lambda_handler
       Code:
@@ -112,7 +112,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_rds_list_backups
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_rds_list_backups.lambda_handler
       Code:
@@ -126,7 +126,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_rds_restore
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_rds_restore.lambda_handler
       Code:
@@ -140,7 +140,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ebs_list_backups
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ebs_list_backups.lambda_handler
       Code:
@@ -154,7 +154,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_ebs_restore
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_ebs_restore.lambda_handler
       Code:
@@ -168,7 +168,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_s3_list_backups
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_s3_list_backups.lambda_handler
       Code:
@@ -182,7 +182,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_s3_restore
       Runtime: python3.12
-      Timeout: 60
+      Timeout: 600
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_s3_restore.lambda_handler
       Code:
