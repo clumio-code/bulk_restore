@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Final
+import logging
+from typing import TYPE_CHECKING, Any
 
 import common
 
@@ -12,9 +13,12 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
+logger = logging.getLogger()
+
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to format the output of the listing layer."""
+    logger.info('Format output...')
     # Retrieve and validate the inputs.
     total_backup_lists: list[dict] = events.get('total_backup_lists', [])
     target_specs: dict[str, Any] = events.get('target_specs', {})
@@ -39,6 +43,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 record['source_account'] = source_account
                 record['target_account'] = target_account
                 restore_group.append(record)
+    logger.info('Format output complete.')
 
     return {
         'status': 200,

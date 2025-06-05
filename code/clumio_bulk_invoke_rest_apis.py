@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -14,6 +16,8 @@ from clumioapi.exceptions import clumio_exception
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def get_endpoint_mappings(
@@ -105,6 +109,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     filters: dict | None = events.get('filters', None)
     limit: int = events.get('limit', 100)
 
+    # Log environment variables.
+    logger.info('ENVIRONMENT VARIABLES:')
+    logger.info('AWS_LAMBDA_LOG_GROUP_NAME: %s', os.environ['AWS_LAMBDA_LOG_GROUP_NAME'])
+    logger.info('AWS_LAMBDA_LOG_STREAM_NAME: %s', os.environ['AWS_LAMBDA_LOG_STREAM_NAME'])
+    # Log input parameters.
+    logger.info('INPUT PARAMETERS:')
+    logger.info('Base URL: %s', base_url)
+    logger.info('Endpoint: %s', endpoint)
+    logger.info('Filters: %s', filters)
+    logger.info('Limit: %s', limit)
+
     # If Clumio bearer token is not passed as an input read it from the AWS secret.
     if not bear:
         status, msg = common.get_bearer_token()
@@ -126,13 +141,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Invoke the REST API.
     try:
+        logger.info('[%s] Sending request...', endpoint)
         raw_response, parsed_response = mappings[endpoint]
         if not raw_response.ok:
+            logger.error('[%s] Request failed with message: %s', endpoint, raw_response.content)
             return {
                 'status': raw_response.status_code,
                 'msg': raw_response.content,
                 'inputs': events,
             }
+        logger.info('[%s] Request successful.', endpoint)
         return {'status': 200, 'response': json.loads(raw_response.content)}
     except clumio_exception.ClumioException as e:
+        logger.info('[%s] Request failed with exception: %s', endpoint, e)
         return {'status': 401, 'msg': f'API error - {e}'}

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -14,6 +15,8 @@ from clumioapi.exceptions import clumio_exception
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -38,16 +41,20 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Retrieve all regions.
     env_filter = {'account_native_id': {'$eq': source_account}}
     try:
+        logger.info('List AWS environments...')
         raw_response, parsed_response = client.aws_environments_v1.list_aws_environments(
             filter=json.dumps(env_filter), limit=100
         )
+
         # Return if response is not ok.
         if not raw_response.ok:
+            logger.error('List AWS environments failed with message: %s', raw_response.content)
             return {
                 'status': raw_response.status_code,
                 'msg': raw_response.content,
                 'inputs': events,
             }
+
         # Convert parsed response to list of regions and environment_id.
         regions = [
             {
@@ -56,6 +63,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             }
             for env in parsed_response.embedded.items
         ]
+        logger.info('Found %s AWS environments.', len(regions))
         return {'status': 200, 'regions': regions}
     except clumio_exception.ClumioException as e:
+        logger.error('List AWS environments failed with exception: %s', e)
         return {'status': 401, 'msg': f'List region error - {e}'}
