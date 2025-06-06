@@ -1,5 +1,5 @@
 {
-  "bear": "",
+  "clumio_token": "",
   "base_url": "us-west-2.api.clumio.com",
   "source_account": "[REQUIRED]",
   "target_specs": {

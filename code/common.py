@@ -131,8 +131,10 @@ def get_bearer_token() -> StatusAndMsgTypeDef:
     try:
         secret_value = secretsmanager.get_secret_value(SecretId=secret_arn)
         secret_dict = json.loads(secret_value['SecretString'])
-        bear = secret_dict.get('token', '')
-        return STATUS_OK, bear
+        # Get the Clumio token from the key/value pair.
+        values = list(secret_dict.values())
+        clumio_token = values[0]
+        return STATUS_OK, clumio_token
     except botocore.exceptions.ClientError as client_error:
         code = client_error.response['Error']['Code']
         return 411, f'Describe secret failed - {code}'
