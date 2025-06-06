@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Final
+import logging
+from typing import TYPE_CHECKING, Any
 
 import common
 
@@ -12,9 +13,12 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
+logger = logging.getLogger()
+
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to validate the input of the bulk restore."""
+    logger.info('Validate input...')
     default_input = events.get('DefaultInput', {})
     restore_groups = events.get('RestoreGroups', {})
 
@@ -35,5 +39,5 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 # If the field is filled with custom value, use that instead.
                 continue
             restore_specs[field] = value
-
+    logger.info('Validate input successful.')
     return {'status': 200, 'RestoreGroups': restore_groups}

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -26,6 +27,8 @@ from clumioapi.exceptions import clumio_exception
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
@@ -59,10 +62,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         # List protection group based on the name.
         search_name = events.get('search_pg_name', None)
         api_filter = {'name': {'$eq': search_name}}
+        logger.info('List protection groups...')
         pg_list = common.get_total_list(
             function=client.protection_groups_v1.list_protection_groups,
             api_filter=json.dumps(api_filter),
         )
+        logger.info('Found %s protection groups.', len(pg_list))
         if not pg_list:
             return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg list'}
         pg_id = pg_list[0].p_id
@@ -74,10 +79,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         if source_region and env_resp == common.STATUS_OK:
             # If region filter is provided, filter per region.
             api_filter['environment_id'] = {'$eq': env_id}
+        logger.info('List S3 assets...')
         pg_assets = common.get_total_list(
             function=client.protection_groups_s3_assets_v1.list_protection_group_s3_assets,
             api_filter=json.dumps(api_filter),
         )
+        logger.info('Found %s S3 assets.', len(pg_assets))
         if not pg_assets:
             return {
                 'status': 207,
@@ -96,11 +103,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             search_direction, start_search_day_offset_input, end_search_day_offset_input
         )
         api_filter['protection_group_id'] = {'$eq': pg_id}
+        logger.info('List protection group backups...')
         raw_backup_records = common.get_total_list(
             function=client.backup_protection_groups_v1.list_backup_protection_groups,
             api_filter=json.dumps(api_filter),
             sort=sort,
         )
+        logger.info('Found %s protection group backups.', len(raw_backup_records))
         if not raw_backup_records:
             return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
 
@@ -117,4 +126,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             )
         return {'status': 200, 'records': records[:1], 'target': target, 'msg': 'completed'}
     except clumio_exception.ClumioException as e:
+        # This exception could come from multiple API calls above.
+        logger.error('Hit exception trying to retrieve protection group backups: %s', e)
         return {'status': 401, 'msg': f'List pg assets error - {e}'}

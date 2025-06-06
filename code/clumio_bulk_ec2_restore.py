@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -24,6 +25,8 @@ from clumioapi import clumioapi_client, configuration, exceptions, models
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
@@ -135,17 +138,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
+        logger.info('Restore EC2 instance...')
         raw_response, result = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(
             body=request
         )
         # Return if non-ok status.
         if not raw_response.ok:
+            logger.error('EC2 restore failed with message: %s', raw_response.content)
             return {
                 'status': raw_response.status_code,
                 'msg': raw_response.content,
                 'inputs': inputs,
             }
+        logger.info('EC2 restore task %s completed successfully.', result.task_id)
         inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
     except exceptions.clumio_exception.ClumioException as e:
+        logger.error('EC2 restore failed with exception: %s', e)
         return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
