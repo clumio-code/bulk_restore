@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -14,6 +15,8 @@ from clumioapi.exceptions import clumio_exception
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -58,11 +61,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 
     try:
+        logger.info('List all %s assets...', resource_type)
         assets_list = common.get_total_list(
             function=list_function, api_filter=json.dumps(list_filter)
         )
     except clumio_exception.ClumioException as e:
+        logger.error('List %s assets failed with exception: %s', resource_type, e)
         return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
+
+    # Log the total number assets found.
+    logger.info('Found %s %s assets.', len(assets_list), resource_type)
 
     # Return the assets list.
     if resource_type == 'ProtectionGroup':

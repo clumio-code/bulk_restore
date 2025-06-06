@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -24,6 +25,8 @@ from clumioapi import clumioapi_client, configuration
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -54,8 +57,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         response = client.tasks_v1.read_task(task_id=task_id)
         status = response.status
     except TypeError:
+        logger.error('[%s] Failed to read task.', task_id)
         return {'status': 401, 'msg': 'user not authorized to access task.', 'inputs': inputs}
 
+    logger.info('[%s] Task status %s.', task_id, status)
     if status == 'completed':
         return {'status': 200, 'msg': 'task completed', 'inputs': inputs}
     if status in ('failed', 'aborted'):

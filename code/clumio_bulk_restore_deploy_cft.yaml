@@ -23,6 +23,11 @@ Resources:
       Tags:
         - Key: Clumio
           Value: clumio_bulk_restore_api_token
+  RestoreLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/clumio-bulk-restore-log-group
+      RetentionInDays: 7
   ValidateInput:
     Type: AWS::Lambda::Function
     Properties:
@@ -37,6 +42,11 @@ Resources:
       Description: clumio_bulk_validate_input
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   Task:
     Type: AWS::Lambda::Function
     Properties:
@@ -51,6 +61,11 @@ Resources:
       Description: clumio_bulk_retrieve_restore_task
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   ListDDN:
     Type: AWS::Lambda::Function
     Properties:
@@ -65,6 +80,11 @@ Resources:
       Description: clumio_bulk_dynamodb_list_backups
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   RestoreDDN:
     Type: AWS::Lambda::Function
     Properties:
@@ -79,6 +99,11 @@ Resources:
       Description: clumio_bulk_dynamodb_restore
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   ListEC2:
     Type: AWS::Lambda::Function
     Properties:
@@ -93,6 +118,11 @@ Resources:
       Description: clumio_bulk_ec2_list_backups
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   RestoreEC2:
     Type: AWS::Lambda::Function
     Properties:
@@ -107,6 +137,11 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   ListRDS:
     Type: AWS::Lambda::Function
     Properties:
@@ -121,6 +156,11 @@ Resources:
       Description: clumio_bulk_ec2_list_backups
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   RestoreRDS:
     Type: AWS::Lambda::Function
     Properties:
@@ -135,6 +175,11 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   ListEBS:
     Type: AWS::Lambda::Function
     Properties:
@@ -149,6 +194,11 @@ Resources:
       Description: clumio_bulk_ebs_list_backups
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   RestoreEBS:
     Type: AWS::Lambda::Function
     Properties:
@@ -163,6 +213,11 @@ Resources:
       Description: clumio_bulk_ebs_restore
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   ListPG:
     Type: AWS::Lambda::Function
     Properties:
@@ -177,6 +232,11 @@ Resources:
       Description: clumio_bulk_s3_list_backups
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   RestorePG:
     Type: AWS::Lambda::Function
     Properties:
@@ -191,6 +251,11 @@ Resources:
       Description: clumio_bulk_s3_restore
       TracingConfig:
         Mode: Active
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref RestoreLogGroup
+        SystemLogLevel: INFO
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:

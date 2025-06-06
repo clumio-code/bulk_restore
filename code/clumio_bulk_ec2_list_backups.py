@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from clumioapi.models.ec2_backup import EC2Backup
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
@@ -109,15 +112,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if search_instance_id:
         api_filter['instance_id'] = {'$eq': search_instance_id}
     try:
+        logger.info('List EC2 backups...')
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances,
             api_filter=json.dumps(api_filter),
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
+        logger.error('List EC2 backups failed with exception: %s', e)
         return {'status': 401, 'msg': f'List backup error - {e}'}
 
+    # Log number of records found before filtering.
+    logger.info('Found %s backup records before applying filters.', len(raw_backup_records))
+
     # Filter the result based on the source_account and source region.
+    logger.info('Filter records by account/region...')
     backup_records = []
     for backup in raw_backup_records:
         if backup.account_native_id == source_account and backup.aws_region == source_region:
@@ -125,10 +134,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             backup_records.append(backup_record)
 
     # Filter the result based on the tags.
+    logger.info('Filter records by tags...')
     backup_records = common.filter_backup_records_by_tags(
         backup_records, search_tag_key, search_tag_value, 'source_instance_tags'
     )
 
+    # Log number of records found after filtering.
+    logger.info('Found %s backup records after applying filters.', len(backup_records))
+
     if not backup_records:
+        logger.info('No EC2 backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}

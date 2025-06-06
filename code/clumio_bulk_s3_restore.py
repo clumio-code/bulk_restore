@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import common
@@ -26,6 +27,8 @@ from clumioapi.exceptions import clumio_exception
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
+
+logger = logging.getLogger()
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -56,9 +59,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'name': {'$in': [target_bucket]},
     }
     try:
+        logger.info('List S3 buckets...')
         s3_buckets = common.get_total_list(
             function=client.aws_s3_buckets_v1.list_aws_s3_buckets, api_filter=json.dumps(api_filter)
         )
+        logger.info('Found %s S3 buckets.', len(s3_buckets))
         if not s3_buckets:
             return {'status': 207, 'msg': 'no target bucket found.', 'inputs': target}
         target_bucket_id = s3_buckets[0].p_id
@@ -81,8 +86,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         req_body = models.restore_protection_group_v1_request.RestoreProtectionGroupV1Request(
             source=source_input, target=target_input
         )
+        logger.info('Restore protection group from backup %s...', source_input.backup_id)
         _, response = client.restored_protection_groups_v1.restore_protection_group(body=req_body)
         if not response.task_id:
+            logger.error('Protection group restore failed.')
             return {'status': 207, 'msg': 'restore failed', 'inputs': target}
         inputs = {
             'resource_type': 'S3',
@@ -90,6 +97,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             'source_backup_id': record['backup_id'],
             'target': target,
         }
+        logger.info('Protection group restore task %s completed successfully.', response.task_id)
         return {'status': 200, 'inputs': inputs, 'msg': 'completed'}
     except clumio_exception.ClumioException as e:
+        logger.error('Protection group restore failed with exception: %s', e)
         return {'status': 401, 'msg': f'Error - {e}'}

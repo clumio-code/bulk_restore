@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Final
 
 import common
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
+logger = logging.getLogger()
 
 IOPS_APPLICABLE_TYPE: Final = ['gp3', 'io1', 'io2']
 
@@ -119,17 +121,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
+        logger.info('Restore EBS volume from backup %s...', source_backup_id)
         raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(
             body=request
         )
         # Return if non-ok status.
         if not raw_response.ok:
+            logger.error('EBS restore failed with message: %s', raw_response.content)
             return {
                 'status': raw_response.status_code,
                 'msg': raw_response.content,
                 'inputs': inputs,
             }
+        logger.info('EBS restore task %s completed successfully.', result.task_id)
         inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
     except exceptions.clumio_exception.ClumioException as e:
+        logger.error('EBS restore failed with exception: %s', e)
         return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
