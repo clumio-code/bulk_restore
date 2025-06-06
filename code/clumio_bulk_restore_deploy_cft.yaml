@@ -8,7 +8,7 @@ Parameters:
   LambdaIAMRole:
     Description: Role to run lambda functions
     Type: String
-    Default: arn:aws:iam::774032570701:role/clumio-bulk-restore-role
+    Default: arn:aws:iam::<account_id>:role/clumio-bulk-restore-role
   LambdaZipObject:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
