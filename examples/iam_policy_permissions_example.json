@@ -23,25 +23,25 @@
       ]
     },
     {
-            "Sid": "logsAllow",
-            "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-            ],
-            "Resource": "*"
+      "Sid": "logsAllow",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
     },
     {
-        "Sid": "secretAllow",
-        "Effect": "Allow",
-        "Action": [
-          "secretsmanager:GetSecretValue"
-        ],
-        "Resource": [
-          "[ARN to Restore Token in Secret Manager]",
-          "[ARN to List Token in Secret Manager]"
-        ]
-      }
+      "Sid": "secretAllow",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": [
+        "[ARN to Restore Token in Secret Manager]",
+        "[ARN to List Token in Secret Manager]"
+      ]
+    }
   ]
 }
