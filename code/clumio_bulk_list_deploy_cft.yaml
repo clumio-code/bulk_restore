@@ -13,16 +13,12 @@ Parameters:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
     Default: clumio_bulk_restore.zip
+  ClumioTokenArn:
+    Description: ARN of the Clumio token secret in AWS Secrets Manager
+    Type: String
+    Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
+
 Resources:
-  ClumioToken:
-    Type: 'AWS::SecretsManager::Secret'
-    Properties:
-      Name: "clumio/token/bulk_restore_list"
-      Description: Clumio token for bulk restore
-      SecretString: '{"username":"FillInUserName","token":"FillInToken"}'
-      Tags:
-        - Key: Clumio
-          Value: clumio_bulk_restore_api_token
   ListLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -42,6 +38,9 @@ Resources:
       Description: Function to invoke various Clumio REST APIs.
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -61,6 +60,9 @@ Resources:
       Description: Function to list the regions of given account.
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -80,6 +82,9 @@ Resources:
       Description: Function to list the assets of given account, region, and resource type.
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -99,6 +104,9 @@ Resources:
       Description: Function to list the latest backup for dynamodb
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -118,6 +126,9 @@ Resources:
       Description: Function to list the latest backup for ec2
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -137,6 +148,9 @@ Resources:
       Description: Function to list the latest backup for rds
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -156,6 +170,9 @@ Resources:
       Description: Function to list the latest backup for ebs
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -175,6 +192,9 @@ Resources:
       Description: Function to list the latest backup for protection group
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -194,6 +214,9 @@ Resources:
       Description: Function to sort the assets of based on the region, and resource type.
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -213,6 +236,9 @@ Resources:
       Description: Function to format the output of the upper layer.
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -1046,9 +1072,3 @@ Resources:
           SortBackupsArn: !GetAtt [ SortBackups, Arn ],
           FormatOutputArn: !GetAtt [ FormatOutput, Arn],
         }
-Outputs:
-  ClumioTokenArn:
-    Description: Edit this Secret to add your Clumio API Token
-    Value: !Ref ClumioToken
-    Export:
-      Name: ClumioTokenListArn

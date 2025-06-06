@@ -13,16 +13,12 @@ Parameters:
     Description: path and name of zip file in LambdaCodeLocationBucket
     Type: String
     Default: clumio_bulk_restore.zip
+  ClumioTokenArn:
+    Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
+    Type: String
+    Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
+
 Resources:
-  ClumioToken:
-    Type: 'AWS::SecretsManager::Secret'
-    Properties:
-      Name: "clumio/token/bulk_restore"
-      Description: Clumio token for bulk restore
-      SecretString: '{"username":"FillInUserName","token":"FillInToken"}'
-      Tags:
-        - Key: Clumio
-          Value: clumio_bulk_restore_api_token
   RestoreLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -42,6 +38,9 @@ Resources:
       Description: clumio_bulk_validate_input
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -61,6 +60,9 @@ Resources:
       Description: clumio_bulk_retrieve_restore_task
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -80,6 +82,9 @@ Resources:
       Description: clumio_bulk_dynamodb_list_backups
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -99,6 +104,9 @@ Resources:
       Description: clumio_bulk_dynamodb_restore
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -118,6 +126,9 @@ Resources:
       Description: clumio_bulk_ec2_list_backups
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -137,6 +148,9 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -156,6 +170,9 @@ Resources:
       Description: clumio_bulk_ec2_list_backups
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -175,6 +192,9 @@ Resources:
       Description: clumio_bulk_ec2_restore
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -194,6 +214,9 @@ Resources:
       Description: clumio_bulk_ebs_list_backups
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -213,6 +236,9 @@ Resources:
       Description: clumio_bulk_ebs_restore
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -232,6 +258,9 @@ Resources:
       Description: clumio_bulk_s3_list_backups
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -251,6 +280,9 @@ Resources:
       Description: clumio_bulk_s3_restore
       TracingConfig:
         Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -1255,9 +1287,3 @@ Resources:
           RestoreDDNArn: !GetAtt [RestoreDDN, Arn],
           TaskArn: !GetAtt [Task, Arn],
         }
-Outputs:
-  ClumioTokenArn:
-    Description: Edit this Secret to add your Clumio API Token
-    Value: !Ref ClumioToken
-    Export:
-      Name: ClumioTokenArn
