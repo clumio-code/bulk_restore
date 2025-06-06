@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import string
 import time
@@ -123,10 +124,12 @@ def get_environment_id(
 
 def get_bearer_token() -> StatusAndMsgTypeDef:
     """Retrieve the bearer token from secret manager."""
-    bearer_secret = DEFAULT_SECRET_PATH
+    secret_arn = os.environ.get('CLUMIO_TOKEN_ARN')
+    if not secret_arn:
+        return 411, 'CLUMIO_TOKEN_ARN environment variable is not set.'
     secretsmanager = boto3.client('secretsmanager')
     try:
-        secret_value = secretsmanager.get_secret_value(SecretId=bearer_secret)
+        secret_value = secretsmanager.get_secret_value(SecretId=secret_arn)
         secret_dict = json.loads(secret_value['SecretString'])
         bear = secret_dict.get('token', '')
         return STATUS_OK, bear
