@@ -23,6 +23,16 @@
       ]
     },
     {
+            "Sid": "logsAllow",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+    },
+    {
         "Sid": "secretAllow",
         "Effect": "Allow",
         "Action": [
