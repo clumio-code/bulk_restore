@@ -2,6 +2,7 @@
   "clumio_token": "",
   "base_url": "us-west-2.api.clumio.com",
   "source_account": "[REQUIRED]",
+  "source_regions" :  ["OPTIONAL","OPTIONAL"],
   "target_specs": {
     "target_account": "[REQUIRED]",
     "EBS": {

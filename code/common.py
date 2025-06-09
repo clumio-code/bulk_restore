@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import string
@@ -35,6 +36,8 @@ MAX_RETRY: Final = 5
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
 FOLLOW_DEFAULT_INPUT: Final = '[This field will follow default input]'
+
+logger = logging.getLogger(__name__)
 
 
 def parse_base_url(base_url: str) -> str:
@@ -129,6 +132,7 @@ def get_bearer_token() -> StatusAndMsgTypeDef:
         return 411, 'CLUMIO_TOKEN_ARN environment variable is not set.'
     secretsmanager = boto3.client('secretsmanager')
     try:
+        logger.info('Retrieving Clumio bearer token from AWS secret: %s', secret_arn)
         secret_value = secretsmanager.get_secret_value(SecretId=secret_arn)
         secret_dict = json.loads(secret_value['SecretString'])
         # Get the Clumio token from the key/value pair.
