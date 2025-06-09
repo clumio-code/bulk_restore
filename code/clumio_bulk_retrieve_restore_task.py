@@ -31,7 +31,7 @@ logger = logging.getLogger()
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 restore task."""
-    bear: str | None = events.get('bear', None)
+    clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     inputs: dict = events.get('inputs', {})
     task: str | None = inputs.get('task', None)
@@ -42,15 +42,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     task_id = task
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not bear:
+    if not clumio_token:
         status, msg = common.get_bearer_token()
         if status != common.STATUS_OK:
             return {'status': status, 'msg': msg}
-        bear = msg
+        clumio_token = msg
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url)
+    config = configuration.Configuration(api_token=clumio_token, hostname=base_url)
     client = clumioapi_client.ClumioAPIClient(config)
 
     try:

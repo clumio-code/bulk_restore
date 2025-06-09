@@ -103,7 +103,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         Dict of status and response contents in the case of success.
     """
     # Retrieve and validate the inputs.
-    bear: str | None = events.get('bear', None)
+    clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     endpoint: str = events.get('endpoint', 'list_aws_environments')
     filters: dict | None = events.get('filters', None)
@@ -113,6 +113,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('ENVIRONMENT VARIABLES:')
     logger.info('AWS_LAMBDA_LOG_GROUP_NAME: %s', os.environ['AWS_LAMBDA_LOG_GROUP_NAME'])
     logger.info('AWS_LAMBDA_LOG_STREAM_NAME: %s', os.environ['AWS_LAMBDA_LOG_STREAM_NAME'])
+    logger.info('CLUMIO_TOKEN_ARN: %s', os.environ['CLUMIO_TOKEN_ARN'])
     # Log input parameters.
     logger.info('INPUT PARAMETERS:')
     logger.info('Base URL: %s', base_url)
@@ -121,15 +122,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Limit: %s', limit)
 
     # If Clumio bearer token is not passed as an input read it from the AWS secret.
-    if not bear:
+    if not clumio_token:
         status, msg = common.get_bearer_token()
         if status != common.STATUS_OK:
             return {'status': status, 'msg': msg}
-        bear = msg
+        clumio_token = msg
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
+    config = configuration.Configuration(
+        api_token=clumio_token, hostname=base_url, raw_response=True
+    )
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Get the REST API mappings.

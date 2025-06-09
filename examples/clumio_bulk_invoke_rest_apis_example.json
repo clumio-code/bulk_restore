@@ -1,7 +1,7 @@
 {
-  "bear": "",
+  "clumio_token": "",
   "base_url": "us-west-2.api.clumio.com",
   "endpoint": "list_aws_environments",
-  "filters": {"account_native_id": {"$eq": "176278461234"}},
+  "filters": {"account_native_id": {"$eq": "111222333444"}},
   "limit": 100
 }

@@ -35,7 +35,7 @@ IOPS_APPLICABLE_TYPE: Final = ['gp3', 'io1', 'io2']
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
     """Handle the lambda function to bulk restore EBS."""
     record: dict = events.get('record', {})
-    bear: str | None = events.get('bear', None)
+    clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     target: dict = events.get('target', {})
     target_account: str | None = target.get('target_account', None)
@@ -57,15 +57,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not bear:
+    if not clumio_token:
         status, msg = common.get_bearer_token()
         if status != common.STATUS_OK:
             return {'status': status, 'msg': msg}
-        bear = msg
+        clumio_token = msg
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
+    config = configuration.Configuration(
+        api_token=clumio_token, hostname=base_url, raw_response=True
+    )
     client = clumioapi_client.ClumioAPIClient(config)
     run_token = common.generate_random_string()
 
