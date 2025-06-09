@@ -120,7 +120,7 @@ CloudFormation Template when you deploy the solution.
 
 | Base Input Parameter             | Description                                                                                                 |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------   |
-| bear                             | Clumio API bearer token https://help.clumio.com/docs/api-tokens                                             |
+| clumio_token                     | Clumio API bearer token https://help.clumio.com/docs/api-tokens                                             |
 | debug                            | Set to a non-zero value to debug issues                                                                     |
 
 

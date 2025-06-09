@@ -73,7 +73,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 backup list."""
-    bear: str | None = events.get('bear', None)
+    clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account: str | None = events.get('source_account', None)
     source_region: str | None = events.get('source_region', None)
@@ -86,11 +86,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not bear:
+    if not clumio_token:
         status, msg = common.get_bearer_token()
         if status != common.STATUS_OK:
             return {'status': status, 'msg': msg}
-        bear = msg
+        clumio_token = msg
 
     # Validate inputs
     try:
@@ -102,7 +102,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(api_token=bear, hostname=base_url, raw_response=True)
+    config = configuration.Configuration(
+        api_token=clumio_token, hostname=base_url, raw_response=True
+    )
     client = clumioapi_client.ClumioAPIClient(config)
 
     # Retrieve the list of backup records.

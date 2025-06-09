@@ -14,7 +14,7 @@ Parameters:
     Type: String
     Default: clumio_bulk_restore.zip
   ClumioTokenArn:
-    Description: ARN of the Clumio token secret in AWS Secrets Manager
+    Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
     Type: String
     Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
 
@@ -300,7 +300,7 @@ Resources:
                           "Pass Input to List Asset": {
                             "Type": "Pass",
                             "Parameters": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "region.$": "$.region",
                               "resource_type.$": "$.resource_type"
@@ -425,7 +425,7 @@ Resources:
                             },
                             "ItemsPath": "$.asset_ids",
                             "ItemSelector": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
@@ -555,7 +555,7 @@ Resources:
                             },
                             "ItemsPath": "$.asset_ids",
                             "ItemSelector": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
@@ -685,7 +685,7 @@ Resources:
                             },
                             "ItemsPath": "$.asset_ids",
                             "ItemSelector": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
@@ -820,7 +820,7 @@ Resources:
                             },
                             "ItemsPath": "$.asset_ids",
                             "ItemSelector": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
@@ -950,7 +950,7 @@ Resources:
                             },
                             "ItemsPath": "$.asset_ids",
                             "ItemSelector": {
-                              "bear.$": "$$.Execution.Input.bear",
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
@@ -1053,7 +1053,7 @@ Resources:
                 ],
                 "End": true,
                 "ResultSelector": {
-                  "bear.$": "$$.Execution.Input.bear",
+                  "clumio_token.$": "$$.Execution.Input.clumio_token",
                   "base_url.$": "$$.Execution.Input.base_url",
                   "RestoreGroups.$": "$.Payload.RestoreGroup",
                   "Note.$": "$.Payload.Note",
