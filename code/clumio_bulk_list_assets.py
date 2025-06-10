@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger()
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912 PLR0915
     """Handle the lambda functions to list of the assets given the env and resource type."""
     # Retrieve and validate the inputs.
     clumio_token: str | None = events.get('clumio_token', None)
@@ -28,6 +28,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     region: dict = events.get('region', {})
     region_name: str = region.get('region', '')
     env_id: str = region.get('environment_id', '')
+    asset_meta_status: dict = events.get('asset_meta_status', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -36,6 +37,21 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             return {'status': status, 'msg': msg}
         clumio_token = msg
 
+    if not asset_meta_status:
+        return {'status': 422, 'msg': 'asset_meta_status is a required input.'}
+    else:
+        protection_status = asset_meta_status.get('protection_status_in', None)
+        backup_status = asset_meta_status.get('backup_status_in', None)
+        is_deleted = asset_meta_status.get('deleted_status_in', None)
+
+    if any(value is not None for value in (protection_status, backup_status, is_deleted)):
+        pass
+    else:
+        return {
+            'status': 422,
+            'msg': 'Some asset status filtering is needed.\
+                protection_status, backup_status_in and deleted_status_in ',
+        }
     # Initiate the Clumio API client.
     base_url = common.parse_base_url(base_url)
     config = configuration.Configuration(
@@ -45,6 +61,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Get the correct asset listing function based on the resource type.
     list_filter: dict = {'environment_id': {'$eq': env_id}}
+    if protection_status:
+        list_filter['protection_status'] = {'$in': protection_status}
+    if backup_status:
+        list_filter['backup_status'] = {'$in': backup_status}
+    if is_deleted:
+        list_filter['is_deleted'] = {'$in': is_deleted}
+    logger.info('Listing assets with filter: %s', json.dumps(list_filter, indent=2))
     if resource_type == 'EBS':
         list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
     elif resource_type == 'EC2':

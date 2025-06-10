@@ -51,7 +51,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Retrieve all regions.
     env_filter = {
         'account_native_id': {'$eq': source_account},
-        'connection_status': {'$eq': 'installed'},
+        'connection_status': {'$eq': 'connected'},
     }
     try:
         logger.info('List AWS environments...')
