@@ -302,6 +302,7 @@ Resources:
                             "Parameters": {
                               "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
+                              "source_asset_types.$": "$$.Execution.Input.source_asset_types",
                               "asset_meta_status.$": "$$.Execution.Input.asset_meta_status",
                               "region.$": "$.region",
                               "resource_type.$": "$.resource_type"
