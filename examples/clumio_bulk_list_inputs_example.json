@@ -2,11 +2,29 @@
   "clumio_token": "",
   "base_url": "us-west-2.api.clumio.com",
   "source_account": "REQUIRED",
-  "source_regions" :  ["OPTIONAL","OPTIONAL"],
+  "source_regions": ["OPTIONAL", "OPTIONAL"],
+  "source_asset_types": {
+    "EBS": {
+      "asset_tags": {"key1": "val1", "key2": "val2"}
+    },
+    "EC2": {
+      "asset_tags": {"key1": "val1", "key2": "val2"}
+    },
+    "RDS": {
+      "asset_tags": {"key1": "val1", "key2": "val2"}
+    },
+    "DynamoDB": {
+      "asset_tags": {"key1": "val1", "key2": "val2"}
+    },
+    "S3": {
+      "search_bucket_names": ["abc", "xyz"],
+      "asset_tags": {"key1": "val1", "key2": "val2"}
+    }
+  },
   "asset_meta_status": {
-    "protection_status_in" : ["protected", "unprotected"],
-    "backup_status_in" : ["success", "partial_success", "failure"],
-    "deleted_status_in" : ["true", "false"]
+    "protection_status_in": ["protected", "unprotected"],
+    "backup_status_in": ["success", "partial_success", "failure"],
+    "deleted_status_in": ["true", "false"]
   },
   "target_specs": {
     "target_account": "REQUIRED",
