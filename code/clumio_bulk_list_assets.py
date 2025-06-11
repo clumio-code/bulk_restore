@@ -109,8 +109,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             for tag in tags.embedded.items:
                 # Ensure exact key/value match as filter only allows $contains.
                 if tag.value == tag_value and tag.key == tag_key:
-                    logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.id)
-                    clumio_tag_ids.append(tag.id)
+                    logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.p_id)
+                    clumio_tag_ids.append(tag.p_id)
             # Bail out if the tag was not found.
             if not clumio_tag_ids:
                 logger.error('Tag not found: {%s:%s}', tag_key, tag_value)
