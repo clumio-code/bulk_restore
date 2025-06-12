@@ -151,30 +151,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Log the total number assets found.
     logger.info('Found %s %s assets.', len(total_assets_list), resource_type)
 
-    # Assert specified buckets exist in the protection group(s).
-    if resource_type == 'ProtectionGroup' and protection_groups:
-        for pg in total_assets_list:
-            # List S3 assets (buckets) in the protection group.
-            asset_filter: dict = {'protection_group_id': {'$eq': pg.p_id}}
-            assets = common.get_total_list(
-                function=client.protection_groups_s3_assets_v1.list_protection_group_s3_assets,
-                api_filter=json.dumps(asset_filter),
-            )
-            asset_names = [asset.bucket_name for asset in assets]
-            # Assert user-specified buckets exist in the protection group.
-            for protection_group in protection_groups:
-                if protection_group['name'] == pg.name and 'bucket_names' in protection_group:
-                    for bucket_name in protection_group['bucket_names']:
-                        if bucket_name in asset_names:
-                            logger.info('Found bucket %s in PG %s.', bucket_name, pg.name)
-                        else:
-                            # TODO: Fail or just log warning?
-                            logger.error('Bucket %s not found in PG %s.', bucket_name, pg.name)
-                            return {
-                                'status': 404,
-                                'msg': f'Bucket {bucket_name} not found in PG {pg.name}.',
-                            }
-
     # Return the assets list.
     if resource_type == 'ProtectionGroup':
         asset_ids = [asset.name for asset in total_assets_list]
