@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912 PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911 PLR0912 PLR0915
     """Handle the lambda functions to list of the assets given the env and resource type."""
     # Retrieve and validate the inputs.
     clumio_token: str | None = events.get('clumio_token', None)
@@ -40,8 +40,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Check if source_asset_types was provided.
     asset_tags: dict = {}
+    protection_groups: list[dict] = []
     if source_asset_types and resource_type in source_asset_types:
-        asset_tags = source_asset_types[resource_type]['asset_tags']
+        if resource_type == 'ProtectionGroup':
+            protection_groups = source_asset_types[resource_type]['protection_groups']
+        else:
+            asset_tags = source_asset_types[resource_type]['asset_tags']
 
     # Verify asset_meta_status was provided.
     if not asset_meta_status:
@@ -94,8 +98,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 
-    # Add tags filter.
+    # Add additional filters.
     if asset_tags:
+        # Add tags.id filter.
         logger.info('Search for asset tags %s...', asset_tags)
         tag_ids = []
         for tag_key, tag_value in asset_tags.items():
@@ -117,23 +122,62 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 return {'status': 404, 'msg': f'Tag not found: {tag_key}:{tag_value}'}
             tag_ids += clumio_tag_ids
         list_filter['tags.id'] = {'$all': tag_ids}
+        list_filters = [list_filter]
+    elif protection_groups:
+        # Add protection group 'name' filter.
+        list_filters = []
+        for protection_group in protection_groups:
+            # Need to make a separate list call for each protection group.
+            pg_filter = list_filter.copy()
+            pg_filter['name'] = {'$eq': protection_group['name']}
+            list_filters.append(pg_filter)
+    else:
+        list_filters = [list_filter]
 
-    try:
-        logger.info('Filter: %s', list_filter)
-        logger.info('List all %s assets...', resource_type)
-        assets_list = common.get_total_list(
-            function=list_function, api_filter=json.dumps(list_filter)
-        )
-    except clumio_exception.ClumioException as e:
-        logger.error('List %s assets failed with exception: %s', resource_type, e)
-        return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
+    # Run list function for each list filter.
+    total_assets_list = []
+    for count, api_filter in enumerate(list_filters, 1):
+        try:
+            logger.info('Filter %s of %s: %s', count, len(list_filters), api_filter)
+            logger.info('List all %s assets...', resource_type)
+            assets_list = common.get_total_list(
+                function=list_function, api_filter=json.dumps(api_filter)
+            )
+            total_assets_list += assets_list
+        except clumio_exception.ClumioException as e:
+            logger.error('List %s assets failed with exception: %s', resource_type, e)
+            return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
 
     # Log the total number assets found.
-    logger.info('Found %s %s assets.', len(assets_list), resource_type)
+    logger.info('Found %s %s assets.', len(total_assets_list), resource_type)
+
+    # Assert specified buckets exist in the protection group(s).
+    if resource_type == 'ProtectionGroup' and protection_groups:
+        for pg in total_assets_list:
+            # List S3 assets (buckets) in the protection group.
+            asset_filter: dict = {'protection_group_id': {'$eq': pg.p_id}}
+            assets = common.get_total_list(
+                function=client.protection_groups_s3_assets_v1.list_protection_group_s3_assets,
+                api_filter=json.dumps(asset_filter),
+            )
+            asset_names = [asset.bucket_name for asset in assets]
+            # Assert user-specified buckets exist in the protection group.
+            for protection_group in protection_groups:
+                if protection_group['name'] == pg.name and 'bucket_names' in protection_group:
+                    for bucket_name in protection_group['bucket_names']:
+                        if bucket_name in asset_names:
+                            logger.info('Found bucket %s in PG %s.', bucket_name, pg.name)
+                        else:
+                            # TODO: Fail or just log warning?
+                            logger.error('Bucket %s not found in PG %s.', bucket_name, pg.name)
+                            return {
+                                'status': 404,
+                                'msg': f'Bucket {bucket_name} not found in PG {pg.name}.',
+                            }
 
     # Return the assets list.
     if resource_type == 'ProtectionGroup':
-        asset_ids = [asset.name for asset in assets_list]
+        asset_ids = [asset.name for asset in total_assets_list]
     else:
-        asset_ids = [asset.p_id for asset in assets_list]
+        asset_ids = [asset.p_id for asset in total_assets_list]
     return {'status': 200, 'region': region_name, 'asset_ids': asset_ids}
