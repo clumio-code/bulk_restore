@@ -94,12 +94,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         if source_region and env_resp == common.STATUS_OK:
             # If region filter is provided, filter per region.
             api_filter['environment_id'] = {'$eq': env_id}
-        logger.info('List S3 assets with filter %s...', api_filter)
+        logger.info('List buckets with filter %s...', api_filter)
         pg_assets = common.get_total_list(
             function=client.protection_groups_s3_assets_v1.list_protection_group_s3_assets,
             api_filter=json.dumps(api_filter),
         )
-        logger.info('Found %s S3 assets.', len(pg_assets))
+        logger.info('Found %s buckets in the protection group.', len(pg_assets))
         if not pg_assets:
             return {
                 'status': 207,
@@ -112,10 +112,24 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             asset_ids = [item.p_id for item in pg_assets]
             s3_bucket_names = [item.bucket_name for item in pg_assets]
         else:
+            # Remove any buckets from the filter that do not exist in the protection group.
+            all_bucket_names = [item.bucket_name for item in pg_assets]
+            bucket_names = s3_bucket_names.copy()
+            for bucket_name in bucket_names:
+                if bucket_name not in all_bucket_names:
+                    logger.warning('Bucket %s does not exist in the protection group.', bucket_name)
+                    s3_bucket_names.remove(bucket_name)
             # Only buckets matching filter will be restored.
             asset_ids = [item.p_id for item in pg_assets if item.bucket_name in s3_bucket_names]
-            logger.info('Found %s S3 assets matching filter.', len(asset_ids))
-            # TODO: Assert all buckets were found? Allow partial match? Allow no match?
+            logger.info('Found %s buckets matching the filter.', len(asset_ids))
+            if not asset_ids:
+                # All buckets filtered out so nothing to restore in this protection group.
+                return {
+                    'status': 207,
+                    'records': [],
+                    'target': target,
+                    'msg': 'no buckets match filter',
+                }
 
         # List pg backups based on the time filter and pg id filter.
         sort, api_filter = common.get_sort_and_ts_filter(
