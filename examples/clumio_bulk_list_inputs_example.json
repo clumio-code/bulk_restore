@@ -1,67 +1,103 @@
 {
-  "clumio_token": "",
-  "base_url": "us-west-2.api.clumio.com",
-  "source_account": "REQUIRED",
-  "source_regions": ["OPTIONAL", "OPTIONAL"],
-  "source_asset_types": {
-    "EBS": {
-      "asset_tags": {"key1": "val1", "key2": "val2"}
-    },
-    "EC2": {
-      "asset_tags": {"key1": "val1", "key2": "val2"}
-    },
-    "RDS": {
-      "asset_tags": {"key1": "val1", "key2": "val2"}
-    },
-    "DynamoDB": {
-      "asset_tags": {"key1": "val1", "key2": "val2"}
-    },
-    "S3": {
-      "search_bucket_names": ["abc", "xyz"],
-      "asset_tags": {"key1": "val1", "key2": "val2"}
-    }
-  },
-  "asset_meta_status": {
-    "protection_status_in": ["protected", "unprotected"],
-    "backup_status_in": ["success", "partial_success", "failure"],
-    "deleted_status_in": ["true", "false"]
-  },
-  "target_specs": {
-    "target_account": "REQUIRED",
-    "EBS": {
-      "target_region": "OPTIONAL",
-      "target_az": "OPTIONAL",
-      "target_iops": 0,
-      "target_volume_type": "OPTIONAL",
-      "target_kms_key_native_id": "IF_DIFF_ACC"
-    },
-    "EC2": {
-      "target_region": "OPTIONAL",
-      "target_az": "OPTIONAL",
-      "target_vpc_native_id": "IF_DIFF_ACC",
-      "target_subnet_native_id": "IF_DIFF_ACC",
-      "target_kms_key_native_id": "IF_DIFF_ACC",
-      "target_iam_instance_profile_name": "IF_DIFF_ACC",
-      "target_key_pair_name": "IF_DIFF_ACC",
-      "target_security_group_native_id": "IF_DIFF_ACC"
-    },
-    "DynamoDB": {
-      "target_region": "OPTIONAL",
-      "change_set_name": "REQUIRED if the rest is empty,"
-    },
-    "RDS": {
-      "target_region": "OPTIONAL",
-      "target_subnet_group_name": "IF_DIFF_ACC",
-      "target_rds_name": "IF_SAME_ACC",
-      "target_kms_key_native_id": "IF_DIFF_ACC",
-      "target_security_group_native_id": "IF_DIFF_ACC"
-    },
-    "ProtectionGroup": {
-      "target_bucket": "REQUIRED",
-      "target_prefix": "OPTIONAL",
-      "search_pg_name": "OPTIONAL",
-      "search_bucket_names": "OPTIONAL",
-      "search_object_filters": {}
-    }
-  }
+   "clumio_token":"",
+   "base_url":"us-west-2.api.clumio.com",
+   "source_account":"REQUIRED",
+   "source_regions":[
+      "OPTIONAL",
+      "OPTIONAL"
+   ],
+   "source_asset_types":{
+      "EBS":{
+         "asset_tags":{
+            "key1":"val1",
+            "key2":"val2"
+         }
+      },
+      "EC2":{
+         "asset_tags":{
+            "key1":"val1",
+            "key2":"val2"
+         }
+      },
+      "RDS":{
+         "asset_tags":{
+            "key1":"val1",
+            "key2":"val2"
+         }
+      },
+      "DynamoDB":{
+         "asset_tags":{
+            "key1":"val1",
+            "key2":"val2"
+         }
+      },
+      "ProtectionGroup":{
+         "protection_groups":[
+            {
+               "name":"REQUIRED",
+               "bucket_names":[
+                  "OPTIONAL",
+                  "OPTIONAL"
+               ]
+            },
+            {
+               "name":"REQUIRED",
+               "bucket_names":[
+                  "OPTIONAL",
+                  "OPTIONAL"
+               ]
+            }
+         ]
+      }
+   },
+   "asset_meta_status":{
+      "protection_status_in":[
+         "protected",
+         "unprotected"
+      ],
+      "backup_status_in":[
+         "success",
+         "partial_success",
+         "failure"
+      ],
+      "deleted_status_in":[
+         "true",
+         "false"
+      ]
+   },
+   "target_specs":{
+      "target_account":"REQUIRED",
+      "EBS":{
+         "target_region":"OPTIONAL",
+         "target_az":"OPTIONAL",
+         "target_iops":0,
+         "target_volume_type":"OPTIONAL",
+         "target_kms_key_native_id":"IF_DIFF_ACC"
+      },
+      "EC2":{
+         "target_region":"OPTIONAL",
+         "target_az":"OPTIONAL",
+         "target_vpc_native_id":"IF_DIFF_ACC",
+         "target_subnet_native_id":"IF_DIFF_ACC",
+         "target_kms_key_native_id":"IF_DIFF_ACC",
+         "target_iam_instance_profile_name":"IF_DIFF_ACC",
+         "target_key_pair_name":"IF_DIFF_ACC",
+         "target_security_group_native_id":"IF_DIFF_ACC"
+      },
+      "DynamoDB":{
+         "target_region":"OPTIONAL",
+         "change_set_name":"REQUIRED if the rest is empty,"
+      },
+      "RDS":{
+         "target_region":"OPTIONAL",
+         "target_subnet_group_name":"IF_DIFF_ACC",
+         "target_rds_name":"IF_SAME_ACC",
+         "target_kms_key_native_id":"IF_DIFF_ACC",
+         "target_security_group_native_id":"IF_DIFF_ACC"
+      },
+      "ProtectionGroup":{
+         "target_bucket":"REQUIRED",
+         "target_prefix":"OPTIONAL"
+      }
+   }
 }

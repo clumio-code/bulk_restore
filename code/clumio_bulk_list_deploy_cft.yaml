@@ -955,6 +955,7 @@ Resources:
                               "clumio_token.$": "$$.Execution.Input.clumio_token",
                               "base_url.$": "$$.Execution.Input.base_url",
                               "source_account.$": "$$.Execution.Input.source_account",
+                              "source_asset_types.$": "$$.Execution.Input.source_asset_types",
                               "source_region.$": "$.region",
                               "search_pg_name.$": "$$.Map.Item.Value",
                               "target": {
