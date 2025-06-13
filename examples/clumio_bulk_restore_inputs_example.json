@@ -54,6 +54,23 @@
       "target_kms_key_native_id": "18faa619-614e-11e9-bd69-f1ba63e776c4"
     },
     {
+      "ResourceType": "ProtectionGroup",
+      "source_account": "111222333444",
+      "source_region": "us-east-1",
+      "search_direction": "before",
+      "search_tag_key": "",
+      "search_tag_value": "",
+      "search_pg_name": "protection-group-1",
+      "search_bucket_names": [
+        "bucket-name-1", "bucket-name-2"
+      ],
+      "start_search_day_offset": 0,
+      "end_search_day_offset": 0,
+      "target_bucket": "bucket-name-3",
+      "target_prefix": "prefix/",
+      "target_account": "222333444555"
+    },
+    {
       "ResourceType": "RDS",
       "source_account": "333444555666",
       "source_region": "us-east-2",
