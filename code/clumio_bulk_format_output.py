@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -62,7 +62,7 @@ To overwrite its value, specify the value in the asset details.""",
                 'target_subnet_native_id': '',
                 'target_security_group_native_ids': [],
             },
-            'S3': {'target_bucket': ''},
+            'ProtectionGroup': {'target_bucket': ''},
         },
     }
 
@@ -123,7 +123,7 @@ def format_record_per_resource_type(
         )
     elif resource_type == 'ProtectionGroup':
         output_record.update(resource_target_specs)
-        if not target_specs.get('target_bucket', None):
+        if not resource_target_specs.get('target_bucket', None):
             output_record['target_bucket'] = common.FOLLOW_DEFAULT_INPUT
         output_record.update(
             {'search_pg_name': backup['pg_name'], 'search_bucket_names': backup['pg_bucket_names']}

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
@@ -34,12 +34,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     inputs: dict = events.get('inputs', {})
-    task: str | None = inputs.get('task', None)
+    task_id: str | None = inputs.get('task', None)
 
-    if not task:
+    # Verify restore task was received.
+    if not task_id:
         return {'status': 402, 'msg': 'no task id', 'inputs': inputs}
-
-    task_id = task
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
