@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911 PLR0912 PLR0915
@@ -44,6 +44,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     object_filters: dict = events.get('search_object_filters', {})
     source_asset_types: dict | None = events.get('source_asset_types', None)
 
+    # Default to restore latest object versions only.
     if 'latest_version_only' not in object_filters:
         object_filters['latest_version_only'] = True
 
@@ -80,7 +81,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             api_filter=json.dumps(api_filter),
         )
         if not pg_list:
-            return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set of pg list'}
+            return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg list'}
         pg_id = pg_list[0].p_id
         logger.info('Found protection group %s.', search_name)
 
