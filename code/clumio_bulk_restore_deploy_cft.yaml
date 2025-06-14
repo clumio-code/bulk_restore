@@ -519,7 +519,7 @@ Resources:
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 205,
-                                "Next": "RDS Wait 30 and check task status agsin"
+                                "Next": "RDS Wait 30 and check task status again"
                               }
                             ],
                             "Default": "RDS Restore Lambda Fail"
@@ -534,7 +534,7 @@ Resources:
                             "Seconds": 5,
                             "End": true
                           },
-                          "RDS Wait 30 and check task status agsin": {
+                          "RDS Wait 30 and check task status again": {
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status RDS"
@@ -711,7 +711,7 @@ Resources:
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 205,
-                                "Next": "EC2 Wait 30 and check task status agsin"
+                                "Next": "EC2 Wait 30 and check task status again"
                               }
                             ],
                             "Default": "EC2 Restore Lambda Fail"
@@ -726,7 +726,7 @@ Resources:
                             "Seconds": 5,
                             "End": true
                           },
-                          "EC2 Wait 30 and check task status agsin": {
+                          "EC2 Wait 30 and check task status again": {
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status EC2"
@@ -890,7 +890,7 @@ Resources:
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 205,
-                                "Next": "DynamoDB Wait 30 and check task status agsin"
+                                "Next": "DynamoDB Wait 30 and check task status again"
                               }
                             ],
                             "Default": "DynamoDB Restore Lambda Fail"
@@ -900,7 +900,7 @@ Resources:
                             "Seconds": 5,
                             "End": true
                           },
-                          "DynamoDB Wait 30 and check task status agsin": {
+                          "DynamoDB Wait 30 and check task status again": {
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status DynamoDB"
@@ -1064,7 +1064,7 @@ Resources:
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 205,
-                                "Next": "EBS Wait 30 and check task status agsin"
+                                "Next": "EBS Wait 30 and check task status again"
                               }
                             ],
                             "Default": "EBS Restore Lambda Fail"
@@ -1074,7 +1074,7 @@ Resources:
                             "Seconds": 5,
                             "End": true
                           },
-                          "EBS Wait 30 and check task status agsin": {
+                          "EBS Wait 30 and check task status again": {
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status EBS"
@@ -1230,7 +1230,7 @@ Resources:
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 205,
-                                "Next": "EBS Wait 30 and check task status again"
+                                "Next": "PG Wait 30 and check task status again"
                               }
                             ],
                             "Default": "PG Restore Lambda Fail"
@@ -1245,7 +1245,7 @@ Resources:
                             "Seconds": 5,
                             "End": true
                           },
-                          "EBS Wait 30 and check task status again": {
+                          "PG Wait 30 and check task status again": {
                             "Type": "Wait",
                             "Seconds": 30,
                             "Next": "Pass inputs to Clumio Check Task Status PG"
