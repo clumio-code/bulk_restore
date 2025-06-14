@@ -42,7 +42,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
     object_filters: dict = events.get('search_object_filters', {})
+    # Filter passed to the list state machine.
     source_asset_types: dict | None = events.get('source_asset_types', None)
+    # Filter passed to the restore state machine.
+    search_bucket_names: list | None = events.get('search_bucket_names', None)
+    # Filter by protection group name.
+    search_name: str | None = events.get('search_pg_name', None)
+    if not search_name:
+        return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg name'}
 
     # Default to restore latest object versions only.
     if 'latest_version_only' not in object_filters:
@@ -62,18 +69,19 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     )
     client = clumioapi_client.ClumioAPIClient(config)
 
-    # Get protection group name to bucket name mappings
-    pg_to_buckets: dict[str, list[str]] = {}
+    # Get bucket names filter.
+    s3_bucket_names: list = []
     if source_asset_types and 'ProtectionGroup' in source_asset_types:
         for protection_group in source_asset_types['ProtectionGroup']['protection_groups']:
-            pg_to_buckets[protection_group['name']] = protection_group['bucket_names']
-        logger.info('Bucket name filters by PG: %s', pg_to_buckets)
+            if protection_group['name'] == search_name:
+                s3_bucket_names = protection_group['bucket_names']
+                break
+    elif search_bucket_names:
+        s3_bucket_names = search_bucket_names
+    logger.info('Filter PG %s by bucket names: %s', search_name, s3_bucket_names)
 
     try:
         # List protection group based on the name.
-        search_name = events.get('search_pg_name', None)
-        if not search_name:
-            return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg name'}
         api_filter = {'name': {'$eq': search_name}}
         logger.info('List protection groups with filter %s...', api_filter)
         pg_list = common.get_total_list(
@@ -86,10 +94,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('Found protection group %s.', search_name)
 
         # List S3 assets based on the bucket names and pg name.
-        s3_bucket_names = None
-        if pg_to_buckets and search_name in pg_to_buckets:
-            s3_bucket_names = pg_to_buckets[str(search_name)]
-
         api_filter = {'protection_group_id': {'$eq': pg_id}}
         env_resp, env_id = common.get_environment_id(client, source_account, source_region)
         if source_region and env_resp == common.STATUS_OK:
