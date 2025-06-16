@@ -71,7 +71,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Get bucket names filter.
     s3_bucket_names: list = []
-    if source_asset_types and 'ProtectionGroup' in source_asset_types:
+    if source_asset_types and 'protection_groups' in source_asset_types['ProtectionGroup']:
         for protection_group in source_asset_types['ProtectionGroup']['protection_groups']:
             if protection_group['name'] == search_name:
                 s3_bucket_names = protection_group['bucket_names']
