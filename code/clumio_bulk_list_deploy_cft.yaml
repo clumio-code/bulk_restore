@@ -313,28 +313,68 @@ Resources:
                             "Type": "Choice",
                             "Choices": [
                               {
-                                "Variable": "$.resource_type",
-                                "StringEquals": "EBS",
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "EBS"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.EBS",
+                                    "IsPresent": true
+                                  }
+                                ],
                                 "Next": "Lambda List EBS Assets"
                               },
                               {
-                                "Variable": "$.resource_type",
-                                "StringEquals": "EC2",
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "EC2"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.EC2",
+                                    "IsPresent": true
+                                  }
+                                ],
                                 "Next": "Lambda List EC2 Assets"
                               },
                               {
-                                "Variable": "$.resource_type",
-                                "StringEquals": "RDS",
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "RDS"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.RDS",
+                                    "IsPresent": true
+                                  }
+                                ],
                                 "Next": "Lambda List RDS Assets"
                               },
                               {
-                                "Variable": "$.resource_type",
-                                "StringEquals": "DynamoDB",
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "DynamoDB"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.DynamoDB",
+                                    "IsPresent": true
+                                  }
+                                ],
                                 "Next": "Lambda List DynamoDB Assets"
                               },
                               {
-                                "Variable": "$.resource_type",
-                                "StringEquals": "ProtectionGroup",
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "ProtectionGroup"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.ProtectionGroup",
+                                    "IsPresent": true
+                                  }
+                                ],
                                 "Next": "Lambda List PG Assets"
                               }
                             ],

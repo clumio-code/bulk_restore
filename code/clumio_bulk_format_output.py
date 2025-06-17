@@ -36,7 +36,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         asset_backup_lists: list[dict[str, list[dict]]] = region_backup_list['backup_list']
         for asset_backup_list in asset_backup_lists:
             resource_type, backup_list = list(asset_backup_list.items())[0]
+            if resource_type not in common.RESOURCE_TYPES:
+                continue
             for backup_record in backup_list:
+                logger.info('%s backup: %s', resource_type, backup_record)
                 record = format_record_per_resource_type(
                     backup_record, resource_type, source_region, target_specs, is_diff_account
                 )

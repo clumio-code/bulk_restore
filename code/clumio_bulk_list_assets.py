@@ -38,18 +38,24 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             return {'status': status, 'msg': msg}
         clumio_token = msg
 
-    # Check if source_asset_types was provided.
+    # Verify source_asset_types was provided.
+    if not source_asset_types:
+        return {'status': 422, 'msg': 'source_asset_types is required input.'}
+
+    # Check if any filters for the source_asset_types were provided.
     asset_tags: dict = {}
     protection_groups: list[dict] = []
-    if source_asset_types and resource_type in source_asset_types:
-        if resource_type == 'ProtectionGroup':
+    if resource_type in source_asset_types:
+        if 'protection_groups' in source_asset_types[resource_type]:
+            # Check for filter, else all S3 assets with backups are restored.
             protection_groups = source_asset_types[resource_type]['protection_groups']
-        else:
+        elif 'asset_tags' in source_asset_types[resource_type]:
+            # Check for filter, else all assets with backups are restored.
             asset_tags = source_asset_types[resource_type]['asset_tags']
 
     # Verify asset_meta_status was provided.
     if not asset_meta_status:
-        return {'status': 422, 'msg': 'asset_meta_status is a required input.'}
+        return {'status': 422, 'msg': 'asset_meta_status is required input.'}
     else:
         protection_status = asset_meta_status.get('protection_status_in', None)
         backup_status = asset_meta_status.get('backup_status_in', None)
