@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911
@@ -105,7 +105,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'msg': raw_response.content,
                 'inputs': inputs,
             }
-        logger.info('DynamoDB restore task %s completed successfully.', result.task_id)
+        logger.info('DynamoDB restore task %s started successfully.', result.task_id)
         inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
     except exceptions.clumio_exception.ClumioException as e:

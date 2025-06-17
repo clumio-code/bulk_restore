@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from clumioapi.models.dynamo_db_table_backup_with_e_tag import DynamoDBTableBackupWithETag
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
@@ -88,6 +88,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
+    # Get values from target if called from the restore state machine.
+    if not search_table_id:
+        search_table_id = target.get('search_table_id', None)
+    if not search_tag_key:
+        search_tag_key = target.get('search_tag_key', None)
+    if not search_tag_value:
+        search_tag_value = target.get('search_tag_value', None)
+
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
         status, msg = common.get_bearer_token()
@@ -117,7 +125,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if search_table_id:
         api_filter['table_id'] = {'$eq': search_table_id}
     try:
-        logger.info('List DynamoDB backups...')
+        logger.info('List DynamoDB backups with filter %s...', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_dynamodb_tables_v1.list_backup_aws_dynamodb_tables,
             api_filter=json.dumps(api_filter),
