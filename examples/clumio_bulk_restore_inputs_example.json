@@ -66,6 +66,7 @@
       ],
       "start_search_day_offset": 0,
       "end_search_day_offset": 0,
+      "search_object_filters": {"latest_version_only": true},
       "target_bucket": "bucket-name-3",
       "target_prefix": "prefix/",
       "target_account": "222333444555"

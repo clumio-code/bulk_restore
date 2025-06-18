@@ -41,17 +41,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
-    object_filters: dict = events.get('search_object_filters', {})
     # Filter passed to the list state machine.
     source_asset_types: dict | None = events.get('source_asset_types', None)
     # Filter passed to the restore state machine.
     search_bucket_names: list | None = events.get('search_bucket_names', None)
+    object_filters: dict = target.get('search_object_filters', {})
     # Filter by protection group name.
     search_name: str | None = events.get('search_pg_name', None)
     if not search_name:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg name'}
 
-    # Default to restore latest object versions only.
+    # Ensure required filter latest_version_only is specified.
     if 'latest_version_only' not in object_filters:
         object_filters['latest_version_only'] = True
 
