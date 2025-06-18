@@ -78,7 +78,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     )
     client = clumioapi_client.ClumioAPIClient(config)
 
-    # Get the correct asset listing function based on the resource type.
+    # Add specified asset_meta_status filters.
     list_filter: dict = {'environment_id': {'$eq': env_id}}
     if protection_status:
         list_filter['protection_status'] = {'$in': protection_status}
@@ -87,6 +87,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if is_deleted:
         list_filter['is_deleted'] = {'$in': is_deleted}
     logger.info('Listing assets with filter: %s', json.dumps(list_filter, indent=2))
+
+    # Get the asset listing function based on the resource type.
     if resource_type == 'EBS':
         list_function = client.aws_ebs_volumes_v1.list_aws_ebs_volumes
     elif resource_type == 'EC2':
@@ -104,7 +106,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
 
-    # Add additional filters.
+    # Add specified source_asset_types filters.
     if asset_tags:
         # Add tags.id filter.
         logger.info('Search for asset tags %s...', asset_tags)
