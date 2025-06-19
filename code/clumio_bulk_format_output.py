@@ -132,6 +132,7 @@ def format_record_per_resource_type(
             {
                 'search_pg_name': backup['pg_name'],
                 'search_bucket_names': backup['pg_bucket_names'],
+                'search_object_filters': backup['object_filters'],
             }
         )
     else:
