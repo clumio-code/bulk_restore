@@ -37,6 +37,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account: str | None = events.get('source_account', None)
     source_region: str | None = events.get('source_region', None)
+    target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
@@ -45,11 +46,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_asset_types: dict | None = events.get('source_asset_types', None)
     # Filter passed to the restore state machine.
     search_bucket_names: list | None = events.get('search_bucket_names', None)
-    object_filters: dict = target.get('search_object_filters', {})
     # Filter by protection group name.
     search_name: str | None = events.get('search_pg_name', None)
     if not search_name:
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg name'}
+
+    # Get search_object_filters from input.
+    if target_specs and 'ProtectionGroup' in target_specs:
+        # Get filter from input to the list state machine.
+        object_filters = target_specs['ProtectionGroup'].get('search_object_filters', {})
+    else:
+        # Get filter from input to the restore state machine.
+        object_filters = target.get('search_object_filters', {})
 
     # Ensure required filter latest_version_only is specified.
     if 'latest_version_only' not in object_filters:

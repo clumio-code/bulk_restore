@@ -97,7 +97,8 @@
       },
       "ProtectionGroup":{
          "target_bucket":"REQUIRED",
-         "target_prefix":"OPTIONAL"
+         "target_prefix":"OPTIONAL",
+         "search_object_filters":"OPTIONAL"
       }
    }
 }

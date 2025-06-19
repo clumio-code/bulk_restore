@@ -129,7 +129,10 @@ def format_record_per_resource_type(
         if not resource_target_specs.get('target_bucket', None):
             output_record['target_bucket'] = common.FOLLOW_DEFAULT_INPUT
         output_record.update(
-            {'search_pg_name': backup['pg_name'], 'search_bucket_names': backup['pg_bucket_names']}
+            {
+                'search_pg_name': backup['pg_name'],
+                'search_bucket_names': backup['pg_bucket_names'],
+            }
         )
     else:
         return {}
