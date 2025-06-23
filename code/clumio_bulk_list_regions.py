@@ -69,6 +69,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'inputs': events,
             }
 
+        # Return if no environment was found.
+        if not parsed_response.embedded.items:
+            logger.error('No connected environment found for account %s.', source_account)
+            return {
+                'status': 404,
+                'msg': f'No connected environment found for account {source_account}',
+            }
+
         # Convert parsed response to list of regions and environment_id.
         regions = []
         for env in parsed_response.embedded.items:
