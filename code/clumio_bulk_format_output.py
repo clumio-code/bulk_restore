@@ -107,11 +107,16 @@ def format_record_per_resource_type(
     elif resource_type == 'DynamoDB':
         changed_name = resource_target_specs.get('change_set_name', None)
         changed_name = changed_name or common.generate_random_string(4)
+        updated_tags: list[dict[str, Any]] | None = backup_record.get('source_ddn_tags', None)
+        append_tags = resource_target_specs.get('append_tags', {})
+        if append_tags:
+            updated_tags = append_tags_to_source_tags(updated_tags, append_tags)
         output_record.update(
             {
                 'search_table_id': backup_record['source_table_id'],
                 'target_region': region,
                 'change_set_name': changed_name,
+                'source_ddn_tags': updated_tags,
             }
         )
     elif resource_type == 'RDS':
@@ -138,6 +143,31 @@ def format_record_per_resource_type(
     else:
         return {}
     return output_record
+
+
+def append_tags_to_source_tags(
+    source_tags: list[dict[str, Any]] | None, append_tags: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Update tags to be added to the restored asset.
+
+    Args:
+        source_tags: Asset tags in backup record.
+            In format [{'key': 'key1', 'value': 'value1'}] or None.
+        append_tags: Additional tags to be added to the restored asset.
+            In format {'key2': 'value2', 'key3': 'value3'}.
+    Returns:
+        Updated tags.
+    """
+    updated_tags = []
+    if source_tags:
+        updated_tags = source_tags.copy()
+    for tag_key, tag_value in append_tags.items():
+        tag = {'key': tag_key, 'value': tag_value}
+        if tag not in updated_tags:
+            logger.info('Append tag: %s', tag)
+            updated_tags.append(tag)
+    logger.info('Tags updated: %s', updated_tags)
+    return updated_tags
 
 
 def get_target_specs_ebs(specs: dict[str, Any], record: dict[str, Any]) -> dict:
