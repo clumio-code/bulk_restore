@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0911, PLR0912, PLR0915
@@ -44,6 +44,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_subnet_native_id = target.get('target_subnet_native_id', None)
     target_vpc_native_id = target.get('target_vpc_native_id', None)
     target_kms_key_native_id = target.get('target_kms_key_native_id', None)
+    target_instance_tags: list[dict[str, Any]] | None = target.get('target_instance_tags', None)
 
     inputs = {
         'resource_type': 'EC2',
@@ -79,7 +80,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_backup_id = backup_record.get('source_backup_id', None)
     source_instance_id = record.get('instance_id')
 
-    # Retrieve the environment id.
+    # Retrieve the environment ID.
     status_code, result_msg = common.get_environment_id(client, target_account, target_region)
     if status_code != common.STATUS_OK:
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
@@ -116,7 +117,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         ebs_block_device_mappings=ebs_mapping,
         environment_id=target_env_id,
         iam_instance_profile_name=target_iam_instance_profile_name or None,
-        tags=common.tags_from_dict(backup_record['source_instance_tags']),
+        tags=target_instance_tags,
         key_pair_name=target_key_pair_name or backup_record['source_key_pair_name'],
         network_interfaces=network_interfaces,
         subnet_native_id=subnet_native_id,
@@ -140,7 +141,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        logger.info('Restore EC2 instance...')
+        logger.info('Restore EC2 instance from backup ID %s...', source_backup_id)
         raw_response, result = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(
             body=request
         )
@@ -152,7 +153,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 'msg': raw_response.content,
                 'inputs': inputs,
             }
-        logger.info('EC2 restore task %s completed successfully.', result.task_id)
+        logger.info('EC2 restore task %s started successfully.', result.task_id)
         inputs['task'] = result.task_id
         return {'status': 200, 'msg': 'completed', 'inputs': inputs}
     except exceptions.clumio_exception.ClumioException as e:

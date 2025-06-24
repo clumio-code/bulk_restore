@@ -169,13 +169,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if append_tags:
         for backup in backup_records:
             tags = backup['backup_record']['source_ddn_tags']
-            if tags is None:
-                tags = []
-            for tag_key, tag_value in append_tags.items():
-                new_tag = {'key': tag_key, 'value': tag_value}
-                if new_tag not in tags:
-                    tags.append(new_tag)
-            # Update the dictionary to be returned.
-            backup['backup_record']['source_ddn_tags'] = tags
+            backup['backup_record']['source_ddn_tags'] = common.append_tags_to_source_tags(
+                tags, append_tags
+            )
 
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}

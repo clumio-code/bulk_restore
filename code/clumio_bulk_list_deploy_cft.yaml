@@ -733,6 +733,7 @@ Resources:
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
                               "search_volume_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
                               "target": {
                                 "search_direction": "before"
                               }
@@ -868,6 +869,7 @@ Resources:
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
                               "search_instance_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
                               "target": {
                                 "search_direction": "before"
                               }

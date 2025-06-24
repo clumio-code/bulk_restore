@@ -87,18 +87,28 @@ def format_record_per_resource_type(
     backup_record = backup.get('backup_record', {})
     region = resource_target_specs.get('target_region', '') or source_region
     if resource_type == 'EBS':
+        updated_tags = backup_record.get('source_volume_tags', None)
+        append_tags = resource_target_specs.get('append_tags', {})
+        if append_tags:
+            updated_tags = append_tags_to_source_tags(updated_tags, append_tags)
         output_record.update(
             {
                 'search_volume_id': backup['volume_id'],
                 'target_region': region,
+                'target_volume_tags': updated_tags,
             }
         )
         output_record.update(get_target_specs_ebs(resource_target_specs, backup_record))
     elif resource_type == 'EC2':
+        updated_tags = backup_record.get('source_instance_tags', None)
+        append_tags = resource_target_specs.get('append_tags', {})
+        if append_tags:
+            updated_tags = append_tags_to_source_tags(updated_tags, append_tags)
         output_record.update(
             {
                 'search_instance_id': backup['instance_id'],
                 'target_region': region,
+                'target_instance_tags': updated_tags,
             }
         )
         output_record.update(
@@ -107,7 +117,7 @@ def format_record_per_resource_type(
     elif resource_type == 'DynamoDB':
         changed_name = resource_target_specs.get('change_set_name', None)
         changed_name = changed_name or common.generate_random_string(4)
-        updated_tags: list[dict[str, Any]] | None = backup_record.get('source_ddn_tags', None)
+        updated_tags = backup_record.get('source_ddn_tags', None)
         append_tags = resource_target_specs.get('append_tags', {})
         if append_tags:
             updated_tags = append_tags_to_source_tags(updated_tags, append_tags)

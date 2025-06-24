@@ -115,7 +115,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             # Get the tag from Clumio inventory matching the specified tag value.
             tag_filter = {'value': {'$contains': tag_value}}
             _, tags = client.aws_environment_tags_v1.list_aws_environment_tags(
-                env_id, filter=json.dumps(tag_filter)
+                env_id, filter=json.dumps(tag_filter), limit=100
             )
             # Get the Clumio tag ID.
             clumio_tag_ids = []
@@ -126,6 +126,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                     clumio_tag_ids.append(tag.p_id)
             # Bail out if the tag was not found.
             if not clumio_tag_ids:
+                # May need to increase the limit in the list_aws_environment_tags request.
                 logger.error('Tag not found: {%s:%s}', tag_key, tag_value)
                 return {'status': 404, 'msg': f'Tag not found: {tag_key}:{tag_value}'}
             tag_ids += clumio_tag_ids

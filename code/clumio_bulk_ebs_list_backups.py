@@ -28,10 +28,10 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912 PLR0915
     """Handle the lambda function to list EBS backups."""
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -40,10 +40,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
     search_volume_id: str | None = events.get('search_volume_id', None)
+    target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 1)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
+
+    # Get append_tags from list state machine input.
+    append_tags: dict[str, Any] | None = None
+    if target_specs and 'EBS' in target_specs:
+        append_tags = target_specs['EBS'].get('append_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -120,4 +126,14 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if not backup_records:
         logger.info('No EBS backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+
+    # Modify tags if append_tags was provided in the target_specs input.
+    # This only applies to the list state machine path.
+    if append_tags:
+        for backup in backup_records:
+            tags = backup['backup_record']['source_volume_tags']
+            backup['backup_record']['source_volume_tags'] = common.append_tags_to_source_tags(
+                tags, append_tags
+            )
+
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}

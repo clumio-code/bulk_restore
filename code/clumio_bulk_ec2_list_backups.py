@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from clumioapi.models.ec2_backup import EC2Backup
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
@@ -71,7 +71,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     }
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912 PLR0915
     """Handle the lambda function to retrieve the EC2 backup list."""
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -80,10 +80,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
     search_instance_id: str | None = events.get('search_instance_id', None)
+    target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
+
+    # Get append_tags from list state machine input.
+    append_tags: dict[str, Any] | None = None
+    if target_specs and 'EC2' in target_specs:
+        append_tags = target_specs['EC2'].get('append_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -140,11 +146,19 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     backup_records = common.filter_backup_records_by_tags(
         backup_records, search_tag_key, search_tag_value, 'source_instance_tags'
     )
-
-    # Log number of records found after filtering.
     logger.info('Found %s backup records after applying filters.', len(backup_records))
 
     if not backup_records:
         logger.info('No EC2 backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+
+    # Modify tags if append_tags was provided in the target_specs input.
+    # This only applies to the list state machine path.
+    if append_tags:
+        for backup in backup_records:
+            tags = backup['backup_record']['source_instance_tags']
+            backup['backup_record']['source_instance_tags'] = common.append_tags_to_source_tags(
+                tags, append_tags
+            )
+
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}
