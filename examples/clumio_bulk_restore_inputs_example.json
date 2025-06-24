@@ -21,7 +21,10 @@
       ],
       "target_subnet_native_id": "subnet-0340ef13d020c1ac9",
       "target_vpc_native_id": "vpc-0a4cde925ca123c1a",
-      "target_kms_key_native_id": ""
+      "target_kms_key_native_id": "",
+      "target_instance_tags": [
+        {"key": "key1", "value": "value1"}
+      ]
     },
     {
       "ResourceType": "EBS",
@@ -37,7 +40,10 @@
       "target_az": "us-east-2b",
       "target_iops": "",
       "target_volume_type": "",
-      "target_kms_key_native_id": "70720655-f8e5-4a73-9137-d6dc8a66543"
+      "target_kms_key_native_id": "70720655-f8e5-4a73-9137-d6dc8a66543",
+      "target_volume_tags": [
+        {"key": "key1", "value": "value1"}
+      ]
     },
     {
       "ResourceType": "DynamoDB",
