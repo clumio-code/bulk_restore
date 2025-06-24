@@ -179,3 +179,14 @@ def tags_from_dict(tags: list[dict[str, str]]) -> list[aws_tag_common_model.AwsT
 def generate_random_string(length: int = 13) -> str:
     """Generate run token for restore."""
     return ''.join(secrets.choice(string.ascii_letters) for _ in range(length))
+
+
+def append_tags_to_source_tags(tags: list[dict], append_tags: dict) -> list[dict]:
+    """Append the append_tags from target_specs to the asset source tags for restore."""
+    if tags is None:
+        tags = []
+    for tag_key, tag_value in append_tags.items():
+        new_tag = {'key': tag_key, 'value': tag_value}
+        if new_tag not in tags:
+            tags.append(new_tag)
+    return tags

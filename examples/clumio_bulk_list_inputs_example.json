@@ -72,7 +72,8 @@
          "target_az":"OPTIONAL",
          "target_iops":0,
          "target_volume_type":"OPTIONAL",
-         "target_kms_key_native_id":"IF_DIFF_ACC"
+         "target_kms_key_native_id":"IF_DIFF_ACC",
+         "append_tags": {"key1":"val1", "key2":"val2"}
       },
       "EC2":{
          "target_region":"OPTIONAL",
@@ -82,7 +83,8 @@
          "target_kms_key_native_id":"IF_DIFF_ACC",
          "target_iam_instance_profile_name":"IF_DIFF_ACC",
          "target_key_pair_name":"IF_DIFF_ACC",
-         "target_security_group_native_id":"IF_DIFF_ACC"
+         "target_security_group_native_id":"IF_DIFF_ACC",
+         "append_tags": {"key1":"val1", "key2":"val2"}
       },
       "DynamoDB":{
          "target_region":"OPTIONAL",
