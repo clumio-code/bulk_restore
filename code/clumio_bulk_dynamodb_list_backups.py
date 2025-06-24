@@ -54,6 +54,7 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
                 'projection': lsi.projection.__dict__,
             }
             lsi_list.append(lsi_dict)
+
     return {
         'table_name': backup.table_name,
         'backup_record': {
@@ -74,7 +75,7 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
     }
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912, PLR0915
     """Handle the lambda function to list DynamoDB backups."""
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -83,10 +84,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_key: str | None = events.get('search_tag_key', None)
     search_tag_value: str | None = events.get('search_tag_value', None)
     search_table_id: str | None = events.get('search_table_id', None)
+    target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
+
+    # Get append_tags from list state machine input.
+    append_tags: dict[str, Any] | None = None
+    if target_specs and 'DynamoDB' in target_specs:
+        append_tags = target_specs['DynamoDB'].get('append_tags', None)
 
     # Get values from target if called from the restore state machine.
     if not search_table_id:
@@ -140,7 +147,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Filter the result based on the source_account and source region.
     logger.info('Filter records by account/region...')
-    backup_records = []
+    backup_records: list[dict] = []
     for backup in raw_backup_records:
         if backup.account_native_id == source_account and backup.aws_region == source_region:
             backup_record = backup_record_obj_to_dict(backup)
@@ -151,11 +158,24 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     backup_records = common.filter_backup_records_by_tags(
         backup_records, search_tag_key, search_tag_value, 'source_ddn_tags'
     )
-
-    # Log number of records found after filtering.
     logger.info('Found %s backup records after applying filters.', len(backup_records))
 
     if not backup_records:
         logger.info('No DynamoDB backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+
+    # Modify tags if append_tags was provided in the target_specs input.
+    # This only applies to the list state machine path.
+    if append_tags:
+        for backup in backup_records:
+            tags = backup['backup_record']['source_ddn_tags']
+            if tags is None:
+                tags = []
+            for tag_key, tag_value in append_tags.items():
+                new_tag = {'key': tag_key, 'value': tag_value}
+                if new_tag not in tags:
+                    tags.append(new_tag)
+            # Update the dictionary to be returned.
+            backup['backup_record']['source_ddn_tags'] = tags
+
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}

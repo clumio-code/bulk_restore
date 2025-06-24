@@ -47,6 +47,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     backup_record: dict = record.get('backup_record', {})
     source_backup_id: str = backup_record.get('source_backup_id', '')
     source_table_name: str = record.get('table_name', '')
+    tags: list[dict[str, Any]] | None = target.get('source_ddn_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -63,7 +64,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     client = clumioapi_client.ClumioAPIClient(config)
     run_token = common.generate_random_string()
 
-    # Retrieve the environment id.
+    # Retrieve the environment ID.
     status_code, result_msg = common.get_environment_id(client, target_account, target_region)
     if status_code != common.STATUS_OK:
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
@@ -76,7 +77,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         )
     )
     restore_target = models.dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
-        environment_id=target_env_id, table_name=f'{source_table_name}-{change_set_name}'
+        environment_id=target_env_id,
+        table_name=f'{source_table_name}-{change_set_name}',
+        tags=tags,
     )
     request = models.restore_aws_dynamodb_table_v1_request.RestoreAwsDynamodbTableV1Request(
         source=source,
@@ -93,7 +96,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         # Use raw response to catch request error.
         config.raw_response = True
         client = clumioapi_client.ClumioAPIClient(config)
-        logger.info('Restore DynamoDB table from backup %s...', source_backup_id)
+        logger.info('Restore DynamoDB table from backup ID %s...', source_backup_id)
         raw_response, result = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(
             body=request
         )

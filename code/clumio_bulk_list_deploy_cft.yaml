@@ -472,6 +472,7 @@ Resources:
                               "source_account.$": "$$.Execution.Input.source_account",
                               "source_region.$": "$.region",
                               "search_table_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
                               "target": {
                                 "search_direction": "before"
                               }

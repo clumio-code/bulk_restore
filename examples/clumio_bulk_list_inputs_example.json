@@ -86,7 +86,8 @@
       },
       "DynamoDB":{
          "target_region":"OPTIONAL",
-         "change_set_name":"REQUIRED if the rest is empty,"
+         "change_set_name":"REQUIRED: suffix appended to the restored table name",
+         "append_tags": {"key1":"val1", "key2":"val2"}
       },
       "RDS":{
          "target_region":"OPTIONAL",
