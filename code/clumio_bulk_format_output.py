@@ -130,10 +130,15 @@ def format_record_per_resource_type(
             }
         )
     elif resource_type == 'RDS':
+        updated_tags = backup_record.get('source_resource_tags', None)
+        append_tags = resource_target_specs.get('append_tags', {})
+        if append_tags:
+            updated_tags = append_tags_to_source_tags(updated_tags, append_tags)
         output_record.update(
             {
                 'search_resource_id': backup['resource_id'],
                 'target_region': region,
+                'target_resource_tags': updated_tags,
             }
         )
         output_record.update(
@@ -234,7 +239,7 @@ def get_target_specs_rds(
     subnet_group = specs.get('target_subnet_group_name', None)
     kms = specs.get('target_kms_key_native_id', None)
     sg_id = specs.get('target_security_group_native_id', None)
-    target_name = specs.get('target_rds_name')
+    target_name = specs.get('target_rds_name', None)
     if is_diff_account:
         subnet_group = subnet_group or common.FOLLOW_DEFAULT_INPUT
         kms = kms or common.FOLLOW_DEFAULT_INPUT
@@ -243,7 +248,10 @@ def get_target_specs_rds(
         subnet_group = subnet_group or record['source_subnet_group_name']
         kms = kms or record['source_kms']
         sg_id = sg_id or record['source_security_group_native_ids']
-        target_name = target_name or common.FOLLOW_DEFAULT_INPUT
+        if not target_name:
+            # Append random string to source database name.
+            source_name = record['source_resource_id']
+            target_name = f'{source_name}-{common.generate_random_string(4).lower()}'
     return {
         'target_subnet_group_name': subnet_group,
         'target_rds_name': target_name,

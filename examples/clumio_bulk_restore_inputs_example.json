@@ -92,7 +92,10 @@
       "target_security_group_native_ids": [
         "sg-0eea837afa883414a"
       ],
-      "target_kms_key_native_id": "f1111ae-865c-47ce-867c-ba9617663e54"
+      "target_kms_key_native_id": "f1111ae-865c-47ce-867c-ba9617663e54",
+      "target_resource_tags": [
+        {"key": "key1", "value": "value1"}
+      ]
     }
   ]
 }

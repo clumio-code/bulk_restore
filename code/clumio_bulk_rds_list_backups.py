@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from clumioapi.models.rds_database_backup import RdsDatabaseBackup
     from common import EventsTypeDef
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
@@ -61,7 +61,7 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     }
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
     """Handle the lambda function to retrieve the RDS backup list."""
     clumio_token = events.get('clumio_token', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -70,18 +70,24 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_tag_key = events.get('search_tag_key', None)
     search_tag_value = events.get('search_tag_value', None)
     search_resource_id: str | None = events.get('search_resource_id', None)
+    target_specs: dict = events.get('target_specs', {})
     target = events.get('target', {})
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
     end_search_day_offset_input = target.get('end_search_day_offset', 0)
 
-    # Validate inputs
+    # Validate input.
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
     except ValueError as e:
         error = f'invalid start and/or end day offset: {e}'
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
+
+    # Get append_tags from list state machine input.
+    append_tags: dict[str, Any] | None = None
+    if target_specs and 'RDS' in target_specs:
+        append_tags = target_specs['RDS'].get('append_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -104,7 +110,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if search_resource_id:
         api_filter['resource_id'] = {'$eq': search_resource_id}
     try:
-        logger.info('List RDS backups...')
+        logger.info('List RDS backups with filter: %s', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
             api_filter=json.dumps(api_filter),
@@ -118,23 +124,35 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Found %s RDS backup records before applying filters.', len(raw_backup_records))
 
     # Filter the result based on the source_account and source region.
-    logger.info('Filter records by account/region...')
+    logger.info('Filter records by type and account/region...')
     backup_records = []
     for backup in raw_backup_records:
+        if backup.p_type == 'aws_rds_resource_granular_backup':
+            # TODO: Restore from the Archive backup type is not supported?
+            continue
         if backup.account_native_id == source_account and backup.aws_region == source_region:
             backup_record = backup_record_obj_to_dict(backup)
             backup_records.append(backup_record)
+            logger.info('Found backup: %s (%s)', backup.p_id, backup.database_native_id)
 
     # Filter the result based on the tags.
     logger.info('Filter records by tags...')
     backup_records = common.filter_backup_records_by_tags(
         backup_records, search_tag_key, search_tag_value, 'source_resource_tags'
     )
-
-    # Log total number of records found after filtering.
-    logger.info('Found %s RDS backup records after applying filters.', len(raw_backup_records))
+    logger.info('Found %s RDS backup records after applying filters.', len(backup_records))
 
     if not backup_records:
         logger.info('No RDS backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
+
+    # Modify tags if append_tags was provided in the target_specs input.
+    # This only applies to the list state machine path.
+    if append_tags:
+        for backup in backup_records:
+            tags = backup['backup_record']['source_resource_tags']
+            backup['backup_record']['source_resource_tags'] = common.append_tags_to_source_tags(
+                tags, append_tags
+            )
+
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}

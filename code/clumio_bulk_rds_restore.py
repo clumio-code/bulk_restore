@@ -43,12 +43,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_kms_key_native_id: str | None = target.get('target_kms_key_native_id', None)
     target_subnet_group_name: str | None = target.get('target_subnet_group_name', None)
     target_rds_name: str = target.get('target_rds_name', '')
+    target_resource_tags: list | None = target.get('target_resource_tags', None)
 
     inputs: dict[str, Any] = {'resource_type': 'RDS'}
 
-    # Validate record.
+    # Validate input.
     if not record:
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
+    if not target_rds_name:
+        return {'status': 205, 'msg': 'target_rds_name is required input', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     if not clumio_token:
@@ -86,10 +89,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         instance_class=backup_record['source_instance_class'],
         is_publicly_accessible=backup_record['source_is_publicly_accessible'] or None,
         kms_key_native_id=target_kms_key_native_id or None,
-        name=f'{source_resource_id}{target_rds_name}',
+        name=target_rds_name,
         security_group_native_ids=target_security_group_native_ids or None,
         subnet_group_name=target_subnet_group_name or None,
-        tags=common.tags_from_dict(backup_record['source_resource_tags']),
+        tags=target_resource_tags,
     )
     request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
         source=restore_source,
