@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import clumioapi_client, configuration, exceptions, models
+from clumioapi import exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -50,19 +50,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     tags: list[dict[str, Any]] | None = target.get('source_ddn_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not clumio_token:
-        status, msg = common.get_bearer_token()
-        if status != common.STATUS_OK:
-            return {'status': status, 'msg': msg}
-        clumio_token = msg
+    clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
 
     # Initiate the Clumio API client.
-    base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(
-        api_token=clumio_token, hostname=base_url, raw_response=True
-    )
-    client = clumioapi_client.ClumioAPIClient(config)
-    run_token = common.generate_random_string()
+    client = common.get_clumio_api_client(base_url, clumio_token)
 
     # Retrieve the environment ID.
     status_code, result_msg = common.get_environment_id(client, target_account, target_region)
@@ -70,7 +61,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
     target_env_id = result_msg
 
-    # Perform the restore.
+    # Build the restore request.
     source = models.dynamo_db_table_restore_source.DynamoDBTableRestoreSource(
         securevault_backup=models.dynamo_db_restore_source_backup_options.DynamoDBRestoreSourceBackupOptions(
             backup_id=source_backup_id,
@@ -85,17 +76,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         source=source,
         target=restore_target,
     )
+
     inputs = {
         'resource_type': 'DynamoDB',
-        'run_token': run_token,
+        'run_token': common.generate_random_string(),
         'task': None,
         'source_backup_id': source_backup_id,
         'source_table_name': source_table_name,
     }
     try:
-        # Use raw response to catch request error.
-        config.raw_response = True
-        client = clumioapi_client.ClumioAPIClient(config)
+        # Run restore.
         logger.info('Restore DynamoDB table from backup ID %s...', source_backup_id)
         raw_response, result = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(
             body=request

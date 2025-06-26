@@ -21,7 +21,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import clumioapi_client, configuration
 from clumioapi.exceptions import clumio_exception
 
 if TYPE_CHECKING:
@@ -92,13 +91,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         append_tags = target_specs['EC2'].get('append_tags', None)
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not clumio_token:
-        status, msg = common.get_bearer_token()
-        if status != common.STATUS_OK:
-            return {'status': status, 'msg': msg}
-        clumio_token = msg
+    clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
 
-    # Validate inputs
+    # Validate input.
     try:
         start_search_day_offset = int(start_search_day_offset_input)
         end_search_day_offset = int(end_search_day_offset_input)
@@ -107,11 +102,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Initiate the Clumio API client.
-    base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(
-        api_token=clumio_token, hostname=base_url, raw_response=True
-    )
-    client = clumioapi_client.ClumioAPIClient(config)
+    client = common.get_clumio_api_client(base_url, clumio_token)
 
     # Retrieve the list of backup records.
     sort, api_filter = common.get_sort_and_ts_filter(
@@ -120,7 +111,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     if search_instance_id:
         api_filter['instance_id'] = {'$eq': search_instance_id}
     try:
-        logger.info('List EC2 backups...')
+        logger.info('List EC2 backups with filter: %s', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances,
             api_filter=json.dumps(api_filter),
