@@ -12,6 +12,8 @@ import common
 from clumioapi import clumioapi_client, configuration
 from clumioapi.exceptions import clumio_exception
 
+MAX_ASSETS_LIMIT = 100  # Maximum number of assets to return in the response.
+
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
     from common import EventsTypeDef
@@ -159,7 +161,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     # Log the total number assets found.
     logger.info('Found %s %s assets.', len(total_assets_list), resource_type)
-
+    if len(total_assets_list) == 0:
+        return {'status': 404, 'msg': f'No {resource_type} assets found.'}
+    # For any resource type, if the total number of assets exceeds the maximum limit,
+    # State/Task fails with error size exceeding the maximum number of bytes service limit.
+    if len(total_assets_list) > MAX_ASSETS_LIMIT:
+        return {
+            'status': 404,
+            'msg': f'Greater than {resource_type} assets found. Apply filters. Too many assets.',
+        }
     # Return the assets list.
     if resource_type == 'ProtectionGroup':
         asset_ids = [asset.name for asset in total_assets_list]
