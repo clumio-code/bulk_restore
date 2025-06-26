@@ -206,16 +206,16 @@ def get_target_specs_ec2(
     az = specs.get('target_az', None) or record.get('source_az', None)
     vpc_id = specs.get('target_vpc_native_id', None)
     subnet_id = specs.get('target_subnet_native_id', None)
-    sg_id = specs.get('target_security_group_native_id', None)
+    sg_ids = specs.get('target_security_group_native_ids', None)
     if is_diff_account:
         vpc_id = vpc_id or common.FOLLOW_DEFAULT_INPUT
         subnet_id = subnet_id or common.FOLLOW_DEFAULT_INPUT
-        sg_id = sg_id or common.FOLLOW_DEFAULT_INPUT
+        sg_ids = sg_ids or common.FOLLOW_DEFAULT_INPUT
     else:
         vpc_id = vpc_id or record.get('source_vpc_id', None)
         source_subnet = record['source_network_interface_list'][0]['subnet_native_id']
         subnet_id = subnet_id or source_subnet
-        sg_id = sg_id or record['source_security_group_native_ids']
+        sg_ids = sg_ids or record['source_security_group_native_ids']
     key_pair = specs.get('target_key_pair_name', None) or record['source_key_pair_name']
     iam_name = specs.get('target_iam_instance_profile_name', None) or record.get(
         'source_iam_instance_profile_name', None
@@ -228,7 +228,7 @@ def get_target_specs_ec2(
         'target_kms_key_native_id': kms,
         'target_iam_instance_profile_name': iam_name,
         'target_key_pair_name': key_pair,
-        'target_security_group_native_ids': sg_id,
+        'target_security_group_native_ids': sg_ids,
     }
 
 
@@ -238,16 +238,16 @@ def get_target_specs_rds(
     """Get or inherit the detailed target specs for RDS asset."""
     subnet_group = specs.get('target_subnet_group_name', None)
     kms = specs.get('target_kms_key_native_id', None)
-    sg_id = specs.get('target_security_group_native_id', None)
+    sg_ids = specs.get('target_security_group_native_ids', None)
     target_name = specs.get('target_rds_name', None)
     if is_diff_account:
         subnet_group = subnet_group or common.FOLLOW_DEFAULT_INPUT
         kms = kms or common.FOLLOW_DEFAULT_INPUT
-        sg_id = sg_id or common.FOLLOW_DEFAULT_INPUT
+        sg_ids = sg_ids or common.FOLLOW_DEFAULT_INPUT
     else:
         subnet_group = subnet_group or record['source_subnet_group_name']
         kms = kms or record['source_kms']
-        sg_id = sg_id or record['source_security_group_native_ids']
+        sg_ids = sg_ids or record['source_security_group_native_ids']
         if not target_name:
             # Append random string to source database name.
             source_name = record['source_resource_id']
@@ -256,5 +256,5 @@ def get_target_specs_rds(
         'target_subnet_group_name': subnet_group,
         'target_rds_name': target_name,
         'target_kms_key_native_id': kms,
-        'target_security_group_native_ids': sg_id,
+        'target_security_group_native_ids': sg_ids,
     }
