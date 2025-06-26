@@ -52,8 +52,7 @@
    },
    "asset_meta_status":{
       "protection_status_in":[
-         "protected",
-         "unprotected"
+         "protected"
       ],
       "backup_status_in":[
          "success",
@@ -61,7 +60,6 @@
          "failure"
       ],
       "deleted_status_in":[
-         "true",
          "false"
       ]
    },
