@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import clumioapi_client, configuration, exceptions, models
+from clumioapi import api_helper, clumioapi_client, configuration, exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -141,7 +141,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        logger.info('Restore EC2 instance from backup ID %s...', source_backup_id)
+        request_dict = api_helper.to_dictionary(request)
+        logger.info('Restore EC2 instance request: %s', request_dict)
         raw_response, result = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(
             body=request
         )
