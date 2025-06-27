@@ -45,6 +45,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_vpc_native_id = target.get('target_vpc_native_id', None)
     target_kms_key_native_id = target.get('target_kms_key_native_id', None)
     target_instance_tags: list[dict[str, Any]] | None = target.get('target_instance_tags', None)
+    should_power_on = target.get('should_power_on', False)
 
     inputs = {
         'resource_type': 'EC2',
@@ -112,7 +113,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         key_pair_name=target_key_pair_name or backup_record['source_key_pair_name'],
         network_interfaces=network_interfaces,
         subnet_native_id=subnet_native_id,
-        should_power_on=True,
+        should_power_on=should_power_on,
         vpc_native_id=target_vpc_native_id or backup_record['source_vpc_id'],
     )
     restore_target = models.ec2_restore_target.EC2RestoreTarget(
