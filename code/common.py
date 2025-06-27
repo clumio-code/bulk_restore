@@ -93,6 +93,16 @@ def get_total_list(function: Callable, api_filter: str, **kwargs: Any) -> list:
     return total_list
 
 
+def get_environment_id_or_raise(
+    client: clumioapi_client.ClumioAPIClient, target_account: str | None, target_region: str | None
+) -> str:
+    """Get the Clumio environment UUID or raise if not found."""
+    status, msg = get_environment_id(client, target_account, target_region)
+    if status != STATUS_OK:
+        raise exceptions.clumio_exception.ClumioException(msg, str(status))
+    return msg
+
+
 def get_environment_id(
     client: clumioapi_client.ClumioAPIClient,
     target_account: str | None,
@@ -131,7 +141,7 @@ def get_bearer_token_if_not_exists(clumio_token: str | None) -> str:
     if not clumio_token:
         status, msg = get_bearer_token()
         if status != STATUS_OK:
-            raise exceptions.clumio_exception.ClumioException(str(status), msg)
+            raise exceptions.clumio_exception.ClumioException(msg, str(status))
         clumio_token = msg
     return clumio_token
 
