@@ -82,7 +82,8 @@
          "target_iam_instance_profile_name":"IF_DIFF_ACC",
          "target_key_pair_name":"IF_DIFF_ACC",
          "target_security_group_native_ids":["IF_DIFF_ACC"],
-         "append_tags": {"key1":"val1", "key2":"val2"}
+         "append_tags": {"key1":"val1", "key2":"val2"},
+         "should_power_on": false
       },
       "DynamoDB":{
          "target_region":"OPTIONAL",
