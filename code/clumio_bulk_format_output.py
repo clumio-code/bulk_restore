@@ -208,6 +208,7 @@ def get_target_specs_ec2(
     subnet_id = specs.get('target_subnet_native_id', None)
     sg_ids = specs.get('target_security_group_native_ids', None)
     should_power_on = specs.get('should_power_on', False)
+    target_ami_native_id = specs.get('target_ami_native_id', None)
     if is_diff_account:
         vpc_id = vpc_id or common.FOLLOW_DEFAULT_INPUT
         subnet_id = subnet_id or common.FOLLOW_DEFAULT_INPUT
@@ -223,6 +224,7 @@ def get_target_specs_ec2(
     )
     kms = specs.get('target_kms_key_native_id', None) or record['source_kms']
     return {
+        'target_ami_native_id': target_ami_native_id,
         'target_az': az,
         'target_vpc_native_id': vpc_id,
         'target_subnet_native_id': subnet_id,

@@ -46,6 +46,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_kms_key_native_id = target.get('target_kms_key_native_id', None)
     target_instance_tags: list[dict[str, Any]] | None = target.get('target_instance_tags', None)
     should_power_on = target.get('should_power_on', False)
+    target_ami_native_id = target.get('target_ami_native_id', None)
 
     inputs = {
         'resource_type': 'EC2',
@@ -78,7 +79,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
     target_env_id = result_msg
 
-    # Perform the restore.
+    # Build the restore request.
     restore_source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
     ebs_mapping = [
         models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
@@ -105,6 +106,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             )
         )
     instance_restore_target = models.ec2_instance_restore_target.EC2InstanceRestoreTarget(
+        ami_native_id=target_ami_native_id,
         aws_az=target_az,
         ebs_block_device_mappings=ebs_mapping,
         environment_id=target_env_id,

@@ -11,6 +11,8 @@
       "search_tag_value": "test22",
       "start_search_day_offset": 0,
       "end_search_day_offset": 10,
+      "search_instance_id": "abb2e20f-xxxx-11ef-9866-7205609e0abc",
+      "target_ami_native_id": "ami-xxxxxxxxxxxxxxxxxxx",
       "target_account": "111222333444",
       "target_region": "us-east-1",
       "target_az": "us-east-1a",
@@ -23,8 +25,12 @@
       "target_vpc_native_id": "vpc-0a4cde925ca123c1a",
       "target_kms_key_native_id": "",
       "target_instance_tags": [
-        {"key": "key1", "value": "value1"}
-      ]
+        {
+          "key": "key1",
+          "value": "value1"
+        }
+      ],
+      "should_power_on": false
     },
     {
       "ResourceType": "EBS",
@@ -42,7 +48,10 @@
       "target_volume_type": "",
       "target_kms_key_native_id": "70720655-f8e5-4a73-9137-d6dc8a66543",
       "target_volume_tags": [
-        {"key": "key1", "value": "value1"}
+        {
+          "key": "key1",
+          "value": "value1"
+        }
       ]
     },
     {
@@ -68,11 +77,14 @@
       "search_tag_value": "",
       "search_pg_name": "protection-group-1",
       "search_bucket_names": [
-        "bucket-name-1", "bucket-name-2"
+        "bucket-name-1",
+        "bucket-name-2"
       ],
       "start_search_day_offset": 0,
       "end_search_day_offset": 0,
-      "search_object_filters": {"latest_version_only": true},
+      "search_object_filters": {
+        "latest_version_only": true
+      },
       "target_bucket": "bucket-name-3",
       "target_prefix": "prefix/",
       "target_account": "222333444555"
@@ -94,7 +106,10 @@
       ],
       "target_kms_key_native_id": "f1111ae-865c-47ce-867c-ba9617663e54",
       "target_resource_tags": [
-        {"key": "key1", "value": "value1"}
+        {
+          "key": "key1",
+          "value": "value1"
+        }
       ]
     }
   ]
