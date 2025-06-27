@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 
 import boto3
 import botocore.exceptions
-from clumioapi import clumioapi_client, exceptions
+from clumioapi import clumioapi_client, configuration, exceptions
 from clumioapi.models import aws_tag_common_model
 from utils import dates
 
@@ -126,10 +126,22 @@ def get_environment_id(
     return 200, response.embedded.items[0].p_id
 
 
+def get_bearer_token_if_not_exists(clumio_token: str | None) -> str:
+    """Get the Clumio token if it was not provided in the JSON input file."""
+    if not clumio_token:
+        status, msg = get_bearer_token()
+        if status != STATUS_OK:
+            raise exceptions.clumio_exception.ClumioException(str(status), msg)
+        clumio_token = msg
+    return clumio_token
+
+
 def get_bearer_token() -> StatusAndMsgTypeDef:
     """Retrieve the bearer token from secret manager."""
     secret_arn = os.environ.get('CLUMIO_TOKEN_ARN')
     if not secret_arn:
+        # Either provide clumio_token in JSON input file or
+        # enter the token in the ClumioTokenArn parameter of the stack.
         return 411, 'CLUMIO_TOKEN_ARN environment variable is not set.'
     secretsmanager = boto3.client('secretsmanager')
     try:
@@ -143,6 +155,17 @@ def get_bearer_token() -> StatusAndMsgTypeDef:
     except botocore.exceptions.ClientError as client_error:
         code = client_error.response['Error']['Code']
         return 411, f'Describe secret failed - {code}'
+
+
+def get_clumio_api_client(
+    base_url: str, clumio_token: str, raw_response: bool = True
+) -> clumioapi_client.ClumioAPIClient:
+    """Get the Clumio REST API client."""
+    base_url = parse_base_url(base_url)
+    config = configuration.Configuration(
+        api_token=clumio_token, hostname=base_url, raw_response=raw_response
+    )
+    return clumioapi_client.ClumioAPIClient(config)
 
 
 def filter_backup_records_by_tags(
