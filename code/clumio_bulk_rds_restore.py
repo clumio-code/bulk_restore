@@ -63,11 +63,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_backup_id = backup_record.get('source_backup_id', '')
     source_resource_id = record.get('resource_id', '')
 
-    # Retrieve the environment id.
-    status_code, result_msg = common.get_environment_id(client, target_account, target_region)
-    if status_code != common.STATUS_OK:
-        return {'status': status_code, 'msg': result_msg, 'inputs': inputs}
-    target_env_id = result_msg
+    # Retrieve the environment ID.
+    target_env_id = common.get_environment_id_or_raise(client, target_account, target_region)
 
     # Perform the restore.
     restore_source = models.rds_resource_restore_source.RdsResourceRestoreSource(
