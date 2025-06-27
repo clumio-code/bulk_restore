@@ -207,6 +207,7 @@ def get_target_specs_ec2(
     vpc_id = specs.get('target_vpc_native_id', None)
     subnet_id = specs.get('target_subnet_native_id', None)
     sg_ids = specs.get('target_security_group_native_ids', None)
+    should_power_on = specs.get('should_power_on', False)
     if is_diff_account:
         vpc_id = vpc_id or common.FOLLOW_DEFAULT_INPUT
         subnet_id = subnet_id or common.FOLLOW_DEFAULT_INPUT
@@ -229,6 +230,7 @@ def get_target_specs_ec2(
         'target_iam_instance_profile_name': iam_name,
         'target_key_pair_name': key_pair,
         'target_security_group_native_ids': sg_ids,
+        'should_power_on': should_power_on,
     }
 
 
