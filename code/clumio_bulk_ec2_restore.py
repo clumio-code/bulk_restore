@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import api_helper, clumioapi_client, configuration, exceptions, models
+from clumioapi import api_helper, exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -58,19 +58,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 205, 'msg': 'no records', 'inputs': inputs}
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
-    if not clumio_token:
-        status, msg = common.get_bearer_token()
-        if status != common.STATUS_OK:
-            return {'status': status, 'msg': msg}
-        clumio_token = msg
+    clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
 
     # Initiate the Clumio API client.
-    base_url = common.parse_base_url(base_url)
-    config = configuration.Configuration(
-        api_token=clumio_token, hostname=base_url, raw_response=True
-    )
-    client = clumioapi_client.ClumioAPIClient(config)
-    run_token = common.generate_random_string()
+    client = common.get_clumio_api_client(base_url, clumio_token)
 
     if not record:
         error = f'invalid backup record {record}'
@@ -134,7 +125,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
 
     inputs = {
         'resource_type': 'EC2',
-        'run_token': run_token,
+        'run_token': common.generate_random_string(),
         'task': None,
         'source_backup_id': source_backup_id,
         'source_instance_id': source_instance_id,
