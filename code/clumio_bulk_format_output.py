@@ -48,11 +48,17 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 restore_group.append(record)
     logger.info('Format output complete.')
 
+    # Return the JSON used as input for the restore state machine.
+    note = (
+        'The DefaultInput section is optional. Its values are used to populate '
+        'corresponding fields in the RestoreGroup section, but only if those '
+        'fields are empty. If a field in RestoreGroup is not empty, its value '
+        'will override the one from DefaultInput.'
+    )
     return {
         'status': 200,
         'RestoreGroup': restore_group,
-        'Note': """The default inputs are the required values for the restore to work.
-To overwrite its value, specify the value in the asset details.""",
+        'Note': note,
         'DefaultInput': {
             'RDS': {
                 'target_subnet_group_name': '',
@@ -146,8 +152,6 @@ def format_record_per_resource_type(
         )
     elif resource_type == 'ProtectionGroup':
         output_record.update(resource_target_specs)
-        if not resource_target_specs.get('target_bucket', None):
-            output_record['target_bucket'] = common.FOLLOW_DEFAULT_INPUT
         output_record.update(
             {
                 'search_pg_name': backup['pg_name'],
@@ -209,11 +213,8 @@ def get_target_specs_ec2(
     sg_ids = specs.get('target_security_group_native_ids', None)
     should_power_on = specs.get('should_power_on', False)
     target_ami_native_id = specs.get('target_ami_native_id', None)
-    if is_diff_account:
-        vpc_id = vpc_id or common.FOLLOW_DEFAULT_INPUT
-        subnet_id = subnet_id or common.FOLLOW_DEFAULT_INPUT
-        sg_ids = sg_ids or common.FOLLOW_DEFAULT_INPUT
-    else:
+    if not is_diff_account:
+        # For same account, get values from backup record if not provided in input file.
         vpc_id = vpc_id or record.get('source_vpc_id', None)
         source_subnet = record['source_network_interface_list'][0]['subnet_native_id']
         subnet_id = subnet_id or source_subnet
@@ -244,11 +245,8 @@ def get_target_specs_rds(
     kms = specs.get('target_kms_key_native_id', None)
     sg_ids = specs.get('target_security_group_native_ids', None)
     target_name = specs.get('target_rds_name', None)
-    if is_diff_account:
-        subnet_group = subnet_group or common.FOLLOW_DEFAULT_INPUT
-        kms = kms or common.FOLLOW_DEFAULT_INPUT
-        sg_ids = sg_ids or common.FOLLOW_DEFAULT_INPUT
-    else:
+    if not is_diff_account:
+        # For same account, get values from backup record if not provided in input file.
         subnet_group = subnet_group or record['source_subnet_group_name']
         kms = kms or record['source_kms']
         sg_ids = sg_ids or record['source_security_group_native_ids']

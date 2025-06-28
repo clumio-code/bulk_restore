@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Final
 
 import common
-from clumioapi import exceptions, models
+from clumioapi import api_helper, exceptions, models
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -112,7 +112,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        logger.info('Restore EBS volume from backup ID %s...', source_backup_id)
+        request_dict = api_helper.to_dictionary(request)
+        logger.info('Restore EBS volume request: %s', request_dict)
         raw_response, result = client.restored_aws_ebs_volumes_v2.restore_aws_ebs_volume(
             body=request
         )
