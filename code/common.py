@@ -35,7 +35,6 @@ ERROR_CODE: Final = 402
 MAX_RETRY: Final = 5
 START_TIMESTAMP_STR: Final = 'start_timestamp'
 STATUS_OK: Final = 200
-FOLLOW_DEFAULT_INPUT: Final = '[This field will follow default input]'
 RESOURCE_TYPES: Final = ['EBS', 'EC2', 'RDS', 'DynamoDB', 'ProtectionGroup']
 
 logger = logging.getLogger(__name__)
