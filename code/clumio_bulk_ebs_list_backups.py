@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912 PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to list EBS backups."""
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -46,9 +46,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # Get append_tags from list state machine input.
-    append_tags: dict[str, Any] | None = None
-    if target_specs and 'EBS' in target_specs:
-        append_tags = target_specs['EBS'].get('append_tags', None)
+    append_tags = common.get_append_tags(target_specs, 'EBS')
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     clumio_token = common.get_bearer_token_if_not_exists(clumio_token)

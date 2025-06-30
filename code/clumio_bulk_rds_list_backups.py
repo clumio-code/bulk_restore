@@ -60,7 +60,7 @@ def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     }
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the RDS backup list."""
     clumio_token = events.get('clumio_token', None)
     base_url = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -84,9 +84,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         return {'status': 401, 'records': [], 'msg': f'failed {error}'}
 
     # Get append_tags from list state machine input.
-    append_tags: dict[str, Any] | None = None
-    if target_specs and 'RDS' in target_specs:
-        append_tags = target_specs['RDS'].get('append_tags', None)
+    append_tags = common.get_append_tags(target_specs, 'RDS')
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     clumio_token = common.get_bearer_token_if_not_exists(clumio_token)

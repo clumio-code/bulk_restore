@@ -70,7 +70,7 @@ def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     }
 
 
-def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:  # noqa: PLR0912 PLR0915
+def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 backup list."""
     clumio_token: str | None = events.get('clumio_token', None)
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
@@ -86,9 +86,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
 
     # Get append_tags from list state machine input.
-    append_tags: dict[str, Any] | None = None
-    if target_specs and 'EC2' in target_specs:
-        append_tags = target_specs['EC2'].get('append_tags', None)
+    append_tags = common.get_append_tags(target_specs, 'EC2')
 
     # If clumio bearer token is not passed as an input read it from the AWS secret.
     clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
