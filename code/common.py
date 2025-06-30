@@ -213,6 +213,19 @@ def generate_random_string(length: int = 13) -> str:
     return ''.join(secrets.choice(string.ascii_letters) for _ in range(length))
 
 
+def get_append_tags(target_specs: dict, resource_type: str) -> dict:
+    """Get the append_tags value from the target_specs input.
+
+    Args:
+        target_specs: The target_specs field of the user input.
+        resource_type: Resource type EBS|EC2|RDS|DynamoDB.
+    """
+    append_tags: dict = {}
+    if target_specs and resource_type in target_specs:
+        append_tags = target_specs[resource_type].get('append_tags', {})
+    return append_tags
+
+
 def append_tags_to_source_tags(tags: list[dict], append_tags: dict) -> list[dict]:
     """Append the append_tags from target_specs to the asset source tags for restore."""
     if tags is None:
