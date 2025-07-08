@@ -65,19 +65,26 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
-def get_total_list(function: Callable, api_filter: str, **kwargs: Any) -> list:
+def get_total_list(
+    function: Callable, api_filter: str, lookback_days: int | None = None, **kwargs: Any
+) -> list:
     """Get the list of all items.
 
     Args:
         function: A list API function call with pagination feature.
         api_filter: The filter applied to the list API as a parsable JSON document.
+        lookback_days: Calculate backup status for the last `lookback_days` days.
         kwargs:
          - sort: The sorting applied to the list API.
     """
     start = 1
     total_list = []
     while True:
-        raw_response, parsed_response = function(filter=api_filter, start=start, **kwargs)
+        params = {'filter': api_filter, 'start': start, **kwargs}
+        if lookback_days is not None:
+            # Only get assets with backups within the lookback_days range.
+            params['lookback_days'] = lookback_days
+        raw_response, parsed_response = function(**params)
         # Raise error if raw response is not ok.
         if not raw_response.ok:
             raise exceptions.clumio_exception.ClumioException(
