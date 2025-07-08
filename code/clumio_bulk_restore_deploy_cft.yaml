@@ -51,7 +51,7 @@ Resources:
     Properties:
       FunctionName: clumio_bulk_retrieve_restore_task
       Runtime: python3.12
-      Timeout: 600
+      Timeout: 800
       Role: !Ref LambdaIAMRole
       Handler: clumio_bulk_retrieve_restore_task.lambda_handler
       Code:

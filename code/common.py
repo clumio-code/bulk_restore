@@ -11,7 +11,7 @@ import os
 import secrets
 import string
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
 import boto3
@@ -38,6 +38,14 @@ STATUS_OK: Final = 200
 RESOURCE_TYPES: Final = ['EBS', 'EC2', 'RDS', 'DynamoDB', 'ProtectionGroup']
 
 logger = logging.getLogger(__name__)
+
+
+class Error(Exception):
+    """Base exception class."""
+
+
+class TimeoutException(Error):
+    """Exception raised when a timeout occurs."""
 
 
 def parse_base_url(base_url: str) -> str:
@@ -242,3 +250,53 @@ def append_tags_to_source_tags(tags: list[dict], append_tags: dict) -> list[dict
         if new_tag not in tags:
             tags.append(new_tag)
     return tags
+
+
+def simple_timer(timeout: float, interval: float, label: str | None = None) -> Generator[float]:
+    """Simple timer iterator.
+
+    Will count up to timeout, then raise an error. Usually used in a for loop
+    that may discard the elapsed time yielded.
+
+    Example:
+        count = 0
+        for _ in clumio_time.simple_timer(3, 1):
+            count += 1
+            if count == 2:
+                return count
+        raise RuntimeError('Code should be unreachable.')
+
+    Do NOT use it in a `while` statement as it will become an infinite loop:
+        while clumio_time.simple_timer(3, 1):
+            print('infinite loop')
+
+    Args:
+        timeout: The number of seconds before timing out.
+        interval: How long to sleep between yields.
+        label: Option to log the object name in the error message.
+        raise_on_timeout: Option to return once the loop completes.
+
+    Yields:
+        The amount of time elapsed in seconds.
+
+    Raises:
+        TimeoutException: timed out.
+    """
+    now = time.monotonic()
+    start_time = now
+    end_time = start_time + timeout
+    while now < end_time:
+        yield now - start_time
+        now = time.monotonic()
+        target = min(now + interval, end_time)
+        while now < target:
+            # Non-blocking sleep: Suspend this and yield to other co-routines to run
+            time.sleep(target - now)
+            now = time.monotonic()
+    if label is not None:
+        msg = f'[{label}] Timed out after {timeout} seconds.'
+    else:
+        msg = f'Timed out after {timeout} seconds.'
+
+    logger.warning(msg)
+    raise TimeoutException(msg)
