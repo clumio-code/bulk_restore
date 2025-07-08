@@ -142,8 +142,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         try:
             logger.info('Filter %s of %s: %s', count, len(list_filters), api_filter)
             logger.info('List all %s assets...', resource_type)
+            # Valid values for lookback_days is 1-60.
             assets_list = common.get_total_list(
-                function=list_function, api_filter=json.dumps(api_filter)
+                function=list_function, api_filter=json.dumps(api_filter), lookback_days=60
             )
             total_assets_list += assets_list
         except clumio_exception.ClumioException as e:
