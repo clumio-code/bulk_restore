@@ -241,6 +241,14 @@ def get_append_tags(target_specs: dict, resource_type: str) -> dict:
     return append_tags
 
 
+def format_append_tags(append_tags: dict) -> list[dict]:
+    """Format user-provided append_tags to AWS format."""
+    tags = []
+    for tag_key, tag_value in append_tags.items():
+        tags.append({'key': tag_key, 'value': tag_value})
+    return tags
+
+
 def append_tags_to_source_tags(tags: list[dict], append_tags: dict) -> list[dict]:
     """Append the append_tags from target_specs to the asset source tags for restore."""
     if tags is None:

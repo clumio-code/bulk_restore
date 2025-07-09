@@ -141,13 +141,4 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('No EC2 backup records found.')
         return {'status': 207, 'records': [], 'target': target, 'msg': 'empty set'}
 
-    # Modify tags if append_tags was provided in the target_specs input.
-    # This only applies to the list state machine path.
-    if append_tags:
-        for backup in backup_records:
-            tags = backup['backup_record']['source_instance_tags']
-            backup['backup_record']['source_instance_tags'] = common.append_tags_to_source_tags(
-                tags, append_tags
-            )
-
     return {'status': 200, 'records': backup_records[:1], 'target': target, 'msg': 'completed'}
