@@ -18,6 +18,7 @@
       "target_az": "us-east-1a",
       "target_iam_instance_profile_name": "",
       "target_key_pair_name": "zxxz-111222333444-ec2-key",
+      "target_eni_cfg_from_backup": true,
       "target_security_group_native_ids": [
         "sg-0546facc66de12222"
       ],
@@ -25,6 +26,12 @@
       "target_vpc_native_id": "vpc-0a4cde925ca123c1a",
       "target_kms_key_native_id": "",
       "target_instance_tags": [
+        {
+          "key": "key1",
+          "value": "value1"
+        }
+      ],
+      "target_volume_tags": [
         {
           "key": "key1",
           "value": "value1"
