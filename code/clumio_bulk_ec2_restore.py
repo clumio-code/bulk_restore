@@ -48,6 +48,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_volume_append_tags = target.get('target_volume_append_tags', [])
     should_power_on = target.get('should_power_on', False)
     target_ami_native_id = target.get('target_ami_native_id', None)
+    target_eni_cfg_from_backup = target.get('target_eni_cfg_from_backup', False)
 
     inputs = {
         'resource_type': 'EC2',
@@ -81,7 +82,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     restore_source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
     ebs_mapping = [
         models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
-            kms_key_native_id=ebs_storage['kms_key_native_id'] or target_kms_key_native_id,
+            kms_key_native_id=target_kms_key_native_id or ebs_storage['kms_key_native_id'],
             name=ebs_storage['name'],
             volume_native_id=ebs_storage['volume_native_id'],
             tags=common.tags_from_dict(ebs_storage['tags'] + target_volume_append_tags),
@@ -99,12 +100,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 security_group_native_ids=target_security_group_native_ids
                 or interface['security_group_native_ids'],
                 subnet_native_id=subnet_native_id,
-                restore_default=True,
-                restore_from_backup=False,
+                restore_default=not target_eni_cfg_from_backup,
+                restore_from_backup=target_eni_cfg_from_backup,
             )
         )
     instance_restore_target = models.ec2_instance_restore_target.EC2InstanceRestoreTarget(
-        ami_native_id=target_ami_native_id,
+        ami_native_id=target_ami_native_id or backup_record['ami]']['ami_native_id'],
         aws_az=target_az,
         ebs_block_device_mappings=ebs_mapping,
         environment_id=target_env_id,
