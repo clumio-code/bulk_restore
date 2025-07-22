@@ -8,7 +8,7 @@
         "s3:*"
       ],
       "Resource": [
-        "arn:aws:s3:::{zip-file-bucket-name}"
+        "arn:aws:s3:::clumio-bulk-restore-dahye"
       ]
     },
     {
@@ -31,17 +31,6 @@
         "logs:PutLogEvents"
       ],
       "Resource": "*"
-    },
-    {
-      "Sid": "secretAllow",
-      "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue"
-      ],
-      "Resource": [
-        "[ARN to Restore Token in Secret Manager]",
-        "[ARN to List Token in Secret Manager]"
-      ]
     }
   ]
 }

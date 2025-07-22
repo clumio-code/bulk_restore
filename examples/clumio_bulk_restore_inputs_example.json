@@ -1,6 +1,6 @@
 {
-  "clumio_token": "",
-  "base_url": "us-west-2.api.clumio.com",
+  "clumio_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ill6TXlZelZtTnpVdE9UTXlaaTAwTlRNNUxXSmpZVGN0TkdVMU56VmpObUkzTUdZeSIsInR5cCI6IkpXVCJ9.eyJjdXN0b206bmFtZSI6InN5c3Rlc3RAc3lzdGVzdC0xNy11dy0yLmNsdW1pby5jb20iLCJjdXN0b206bnMiOiJzeXN0ZXN0LTE3LXV3LTIiLCJjdXN0b206b3JnaWQiOiIxMjcwMjQ1MzgyOTQ5Njg0MzM1IiwiY3VzdG9tOnVzZXJpZCI6IjEyMjUyOTM0MDQzODIzOTg4NzMiLCJlbWFpbCI6InN5c3Rlc3RAc3lzdGVzdC0xNy11dy0yLmNsdW1pby5jb20iLCJpYXQiOjE3NDc4ODM1NTIsImlzcyI6Imh0dHBzOi8vc3lzdGVzdC0xNy11dy0yLWJhY2tlbmQuYXBpLnFlLmNsdW0uaW8vYXBpL3Rva2Vucy9vcmdhbml6YXRpb25zLzEyNzAyNDUzODI5NDk2ODQzMzUiLCJqdGkiOiJjMzJjNWY3NS05MzJmLTQ1MzktYmNhNy00ZTU3NWM2YjcwZjIiLCJzdWIiOiIvdXNlcnMvMTIyNTI5MzQwNDM4MjM5ODg3MyIsInRva2VuX3VzZSI6ImlkIn0.IJnfcXDlfw41AenRXWFY5eTfvq1yvkQbhN_2hvm-mRl4nDONap7bB8AAqAzRc0KYWiq49XWKZV1oEsCNLgo5rLFaUBt6l03WNqc9RFczQ83DB65jlGZ9ZSWJJdNFM5-mQH9ZnJLGQl-wvgpduQvc07vLBXOsG02iKxghlxFtVy6NEUBjnDu4_G7SAnNI7tY21Nk_5Wk7rDwTDFcluL_Ch5I8P6ZdxStAtJ1dLzzLUWbRmBTJY90zK3BO3-KCbdMQmnUif-Oa2U8VuWIHlLZj-xBGGh7kXSycpkgpkLDVgvaFAXYOC97561XHLRsz-nxqQsXxm1X5iZkBTHFdmXC3zA",
+  "base_url": "https://systest-17-uw-2-backend.api.qe.clum.io/api",
   "RestoreGroups": [
     {
       "ResourceType": "EC2",
@@ -18,6 +18,7 @@
       "target_az": "us-east-1a",
       "target_iam_instance_profile_name": "",
       "target_key_pair_name": "zxxz-111222333444-ec2-key",
+      "target_eni_cfg_from_backup": true,
       "target_security_group_native_ids": [
         "sg-0546facc66de12222"
       ],
@@ -30,27 +31,33 @@
           "value": "value1"
         }
       ],
-      "should_power_on": false
-    },
-    {
-      "ResourceType": "EBS",
-      "source_account": "222333444555",
-      "source_region": "us-east-1",
-      "search_direction": "after",
-      "search_tag_key": "Dev",
-      "search_tag_value": "Yes",
-      "start_search_day_offset": 0,
-      "end_search_day_offset": 10,
-      "target_account": "222333444555",
-      "target_region": "us-east-2",
-      "target_az": "us-east-2b",
-      "target_iops": "",
-      "target_volume_type": "",
-      "target_kms_key_native_id": "70720655-f8e5-4a73-9137-d6dc8a66543",
       "target_volume_tags": [
         {
           "key": "key1",
           "value": "value1"
+        }
+      ],
+      "should_power_on": false
+    },
+    {
+      "ResourceType": "EBS",
+      "source_account": "720489691371",
+      "source_region": "us-west-2",
+      "search_direction": "after",
+      "search_tag_key": "aws-compliance-restored",
+      "search_tag_value": "restored",
+      "start_search_day_offset": 10,
+      "end_search_day_offset": 0,
+      "target_account": "720489691371",
+      "target_region": "us-east-2",
+      "target_az": "us-east-2b",
+      "target_iops": "",
+      "target_volume_type": "",
+      "target_kms_key_native_id": "0a4984d8-3c64-414b-8851-baafc9aa9f74",
+      "target_volume_tags": [
+        {
+          "key": "test",
+          "value": "restore"
         }
       ]
     },

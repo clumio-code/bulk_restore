@@ -67,6 +67,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     source_backup_id = backup_record.get('source_backup_id', None)
     source_volume_id = record.get('volume_id')
     source_volume_type = backup_record.get('source_volume_type', None)
+    target_volume_tags = target_volume_tags or backup_record.get('source_volume_tags', [])
 
     # Retrieve the environment ID.
     target_env_id = common.get_environment_id_or_raise(client, target_account, target_region)
