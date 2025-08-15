@@ -3,4 +3,4 @@
 
 boto3==1.35.59
 
-git+https://github.com/clumio-code/clumio-python-sdk@v0.16.5#egg=clumioapi
+git+https://github.com/clumio-code/clumio-python-sdk@v0.16.6#egg=clumioapi
