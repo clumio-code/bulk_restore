@@ -45,7 +45,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_vpc_native_id = target.get('target_vpc_native_id', None)
     target_kms_key_native_id = target.get('target_kms_key_native_id', None)
     target_instance_tags: list[dict[str, Any]] | None = target.get('target_instance_tags', None)
-    target_volume_tags = target.get('target_volume_tags', [])
+    target_volume_append_tags = target.get('target_volume_append_tags', [])
     should_power_on = target.get('should_power_on', False)
     target_ami_native_id = target.get('target_ami_native_id', '')
     target_eni_cfg_from_backup = target.get('target_eni_cfg_from_backup', False)
@@ -90,7 +90,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             kms_key_native_id=target_kms_key_native_id or ebs_storage['kms_key_native_id'],
             name=ebs_storage['name'],
             volume_native_id=ebs_storage['volume_native_id'],
-            tags=target_volume_tags or common.tags_from_dict(ebs_storage['tags']),
+            tags=target_volume_append_tags + common.tags_from_dict(ebs_storage['tags']),
         )
         for ebs_storage in backup_record.get('source_ebs_storage_list', [])
     ]

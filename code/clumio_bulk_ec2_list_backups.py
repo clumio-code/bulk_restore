@@ -81,6 +81,8 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_instance_id: str | None = events.get('search_instance_id', None)
     target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
+    if not search_instance_id:  # For restore SM search_instance_id is under target
+        search_instance_id = target.get('search_instance_id', None)
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 0)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
