@@ -112,16 +112,22 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             )
             # Get the Clumio tag ID.
             clumio_tag_ids = []
-            for tag in tags.embedded.items:
-                # Ensure exact key/value match as filter only allows $contains.
-                if tag.value == tag_value and tag.key == tag_key:
-                    logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.p_id)
-                    clumio_tag_ids.append(tag.p_id)
+            if tags.embedded.items:
+                for tag in tags.embedded.items:
+                    # Ensure exact key/value match as filter only allows $contains.
+                    if tag.value == tag_value and tag.key == tag_key:
+                        logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.p_id)
+                        clumio_tag_ids.append(tag.p_id)
             # Bail out if the tag was not found.
             if not clumio_tag_ids:
                 # May need to increase the limit in the list_aws_environment_tags request.
                 logger.error('Tag not found: {%s:%s}', tag_key, tag_value)
-                return {'status': 404, 'msg': f'Tag not found: {tag_key}:{tag_value}'}
+                return {
+                    'status': 200,
+                    'region': region_name,
+                    'msg': f'Tag not found: {tag_key}:{tag_value}',
+                    'asset_ids': [],
+                }
             tag_ids += clumio_tag_ids
         list_filter['tags.id'] = {'$all': tag_ids}
         list_filters = [list_filter]
@@ -154,7 +160,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Log the total number assets found.
     logger.info('Found %s %s assets.', len(total_assets_list), resource_type)
     if len(total_assets_list) == 0:
-        return {'status': 404, 'msg': f'No {resource_type} assets found.'}
+        return {
+            'status': 200,
+            'region': region_name,
+            'msg': f'No {resource_type} assets found.',
+            'asset_ids': [],
+        }
     # For any resource type, if the total number of assets exceeds the maximum limit,
     # State/Task fails with error size exceeding the maximum number of bytes service limit.
     if len(total_assets_list) > MAX_ASSETS_LIMIT:
