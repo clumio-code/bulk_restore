@@ -11,8 +11,6 @@ import os
 import secrets
 import string
 import time
-from requests import adapters
-from urllib3.util import Retry
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
@@ -20,12 +18,16 @@ import boto3
 import botocore.exceptions
 from clumioapi import clumioapi_client, configuration, exceptions
 from clumioapi.models import aws_tag_common_model
+from requests import adapters
+from urllib3.util import Retry
 from utils import dates
 
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
     StatusAndMsgTypeDef = tuple[int, str]
-    from clumioapi.models.list_aws_environments_response import ListAWSEnvironmentsResponse
+    from clumioapi.models.list_aws_environments_response import (
+        ListAWSEnvironmentsResponse,
+    )
 
     class ListingCallable(Protocol):
         def __call__(self, filter: str | None, sort: str | None, start: int) -> Any: ...
@@ -49,17 +51,18 @@ class Error(Exception):
 class TimeoutException(Error):
     """Exception raised when a timeout occurs."""
 
+
 # Define the retry strategy
 retry_strategy = Retry(
     total=8,  # Total number of retries
     status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
     allowed_methods=[
-        "HEAD",
-        "GET",
-        "OPTIONS",
-        "PUT",
-        "POST",
-        "DELETE",
+        'HEAD',
+        'GET',
+        'OPTIONS',
+        'PUT',
+        'POST',
+        'DELETE',
     ],  # Retry on these methods
     backoff_factor=2,  # A delay factor for exponential backoff.
     # Sleep for: {backoff factor} * (2 ** ({number of total retries} - 1))
@@ -67,18 +70,21 @@ retry_strategy = Retry(
 )
 retry_adapter = adapters.HTTPAdapter(max_retries=retry_strategy)
 
+
 def parse_base_url(base_url: str) -> str:
     """Parse the base URL."""
     return base_url.removeprefix('https://')
 
 
 def get_sort_and_ts_filter(
-    direction: str | None, start_day_offset: int, end_day_offset: int
+    direction: str | None,
+    start_day_offset: int,
+    end_day_offset: int,
 ) -> tuple[str, dict[str, Any]]:
     """Get the sort and the timestamp filter."""
     end_timestamp_str = dates.get_max_n_days_ago(end_day_offset).strftime(dates.ISO_8601_FORMAT)
     start_timestamp_str = dates.get_midnight_n_days_ago(start_day_offset).strftime(
-        dates.ISO_8601_FORMAT
+        dates.ISO_8601_FORMAT,
     )
 
     sort = START_TIMESTAMP_STR
@@ -93,7 +99,10 @@ def get_sort_and_ts_filter(
 
 
 def get_total_list(
-    function: Callable, api_filter: str, lookback_days: int | None = None, **kwargs: Any
+    function: Callable,
+    api_filter: str,
+    lookback_days: int | None = None,
+    **kwargs: Any,
 ) -> list:
     """Get the list of all items.
 
@@ -115,7 +124,8 @@ def get_total_list(
         # Raise error if raw response is not ok.
         if not raw_response.ok:
             raise exceptions.clumio_exception.ClumioException(
-                raw_response.reason, raw_response.content
+                raw_response.reason,
+                raw_response.content,
             )
         if not parsed_response.total_count:
             break
@@ -127,7 +137,9 @@ def get_total_list(
 
 
 def get_environment_id_or_raise(
-    client: clumioapi_client.ClumioAPIClient, target_account: str | None, target_region: str | None
+    client: clumioapi_client.ClumioAPIClient,
+    target_account: str | None,
+    target_region: str | None,
 ) -> str:
     """Get the Clumio environment UUID or raise if not found."""
     status, msg = get_environment_id(client, target_account, target_region)
@@ -156,7 +168,7 @@ def get_environment_id(
     response: ListAWSEnvironmentsResponse | None = None
     while retry < MAX_RETRY:
         _, response = client.aws_environments_v1.list_aws_environments(
-            filter=json.dumps(env_filter)
+            filter=json.dumps(env_filter),
         )
         if response:
             break
@@ -201,16 +213,20 @@ def get_bearer_token() -> StatusAndMsgTypeDef:
 
 
 def get_clumio_api_client(
-    base_url: str, clumio_token: str, raw_response: bool = True
+    base_url: str,
+    clumio_token: str,
+    raw_response: bool = True,
 ) -> clumioapi_client.ClumioAPIClient:
     """Get the Clumio REST API client."""
     base_url = parse_base_url(base_url)
     config = configuration.Configuration(
-        api_token=clumio_token, hostname=base_url, raw_response=raw_response
+        api_token=clumio_token,
+        hostname=base_url,
+        raw_response=raw_response,
     )
     client = clumioapi_client.ClumioAPIClient(config)
-    client.base_controller.client.session.mount("https://", retry_adapter)
-    client.base_controller.client.session.mount("http://", retry_adapter)
+    client.base_controller.client.session.mount('https://', retry_adapter)
+    client.base_controller.client.session.mount('http://', retry_adapter)
 
     return client
 
