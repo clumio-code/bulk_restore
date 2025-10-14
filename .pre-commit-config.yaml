@@ -27,7 +27,7 @@ repos:
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version. Keep in sync with the version in requirements-dev.txt.
-    rev: v0.7.3
+    rev: v0.14.0
     hooks:
       # Run the linter.
       - id: ruff
@@ -35,10 +35,18 @@ repos:
       # Do not run the formatter for now.
       # - id: ruff-format
 
+  # Gray is a bundle of python formatters.
+  - repo: https://github.com/dizballanze/gray
+    # When updating the rev here, update the gray entry in requirements.txt.
+    rev: 0.16.0 # Replace by any tag/branch: https://github.com/dizballanze/gray/tags
+    hooks:
+      - id: gray
+        stages: [pre-commit]
+
   # yamllint
   - repo: https://github.com/adrienverge/yamllint.git
     # When updating the rev here, update the yamllint entry in requirements.txt.
-    rev: v1.35.1
+    rev: v1.37.1
     hooks:
       - id: yamllint
         stages: [pre-commit]
