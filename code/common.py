@@ -11,6 +11,8 @@ import os
 import secrets
 import string
 import time
+from requests import adapters
+from urllib3.util import Retry
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
@@ -47,6 +49,23 @@ class Error(Exception):
 class TimeoutException(Error):
     """Exception raised when a timeout occurs."""
 
+# Define the retry strategy
+retry_strategy = Retry(
+    total=8,  # Total number of retries
+    status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
+    allowed_methods=[
+        "HEAD",
+        "GET",
+        "OPTIONS",
+        "PUT",
+        "POST",
+        "DELETE",
+    ],  # Retry on these methods
+    backoff_factor=2,  # A delay factor for exponential backoff.
+    # Sleep for: {backoff factor} * (2 ** ({number of total retries} - 1))
+    # e.g., 0s, 2s, 4s, 8s, 16s, 32s, 64s, 128s
+)
+retry_adapter = adapters.HTTPAdapter(max_retries=retry_strategy)
 
 def parse_base_url(base_url: str) -> str:
     """Parse the base URL."""
@@ -189,7 +208,11 @@ def get_clumio_api_client(
     config = configuration.Configuration(
         api_token=clumio_token, hostname=base_url, raw_response=raw_response
     )
-    return clumioapi_client.ClumioAPIClient(config)
+    client = clumioapi_client.ClumioAPIClient(config)
+    client.base_controller.client.session.mount("https://", retry_adapter)
+    client.base_controller.client.session.mount("http://", retry_adapter)
+
+    return client
 
 
 def filter_backup_records_by_tags(
