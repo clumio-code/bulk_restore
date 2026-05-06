@@ -17,17 +17,19 @@ Parameters:
     Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
     Type: String
     Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
+  CodeVersion:
+    Description: Increment this value to force Lambda code update when uploading new code to the same S3 key
+    Type: String
+    Default: '1'
 
 Resources:
   ListLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /aws/lambda/clumio-bulk-list-log-group
       RetentionInDays: 7
   InvokeAPI:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_invoke_rest_apis
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -35,7 +37,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to invoke various Clumio REST APIs.
+      Description: !Sub 'Invokes various Clumio REST APIs (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -49,7 +51,6 @@ Resources:
   ListRegions:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_list_regions
       Runtime: python3.12
       Timeout: 120
       Role: !Ref LambdaIAMRole
@@ -57,7 +58,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the regions of given account.
+      Description: !Sub 'Lists regions of given account (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -71,7 +72,6 @@ Resources:
   ListAssets:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_list_assets
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -79,7 +79,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the assets of given account, region, and resource type.
+      Description: !Sub 'Lists assets by account, region, and resource type (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -93,7 +93,6 @@ Resources:
   ListDDN:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_dynamodb_list_latest_backup
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -101,7 +100,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the latest backup for dynamodb
+      Description: !Sub 'Lists latest DynamoDB backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -115,7 +114,6 @@ Resources:
   ListEC2:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ec2_list_latest_backup
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -123,7 +121,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the latest backup for ec2
+      Description: !Sub 'Lists latest EC2 backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -137,7 +135,6 @@ Resources:
   ListRDS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_rds_list_latest_backup
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -145,7 +142,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the latest backup for rds
+      Description: !Sub 'Lists latest RDS backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -159,7 +156,6 @@ Resources:
   ListEBS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ebs_list_latest_backup
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -167,7 +163,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the latest backup for ebs
+      Description: !Sub 'Lists latest EBS backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -181,7 +177,6 @@ Resources:
   ListPG:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_s3_list_latest_backup
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -189,7 +184,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to list the latest backup for protection group
+      Description: !Sub 'Lists latest Protection Group backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -203,7 +198,6 @@ Resources:
   SortBackups:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_sort_backups_list
       Runtime: python3.12
       Timeout: 120
       Role: !Ref LambdaIAMRole
@@ -211,7 +205,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to sort the assets of based on the region, and resource type.
+      Description: !Sub 'Sorts backup list by region and resource type (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -225,7 +219,6 @@ Resources:
   FormatOutput:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_format_output
       Runtime: python3.12
       Timeout: 120
       Role: !Ref LambdaIAMRole
@@ -233,7 +226,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: Function to format the output of the upper layer.
+      Description: !Sub 'Formats bulk list output (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -247,11 +240,9 @@ Resources:
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
-      StateMachineName: clumio-bulk-list-backup-layer
       RoleArn: !Ref LambdaIAMRole
       DefinitionString:
-        !Sub
-        - |-
+        !Sub |-
           {
             "QueryLanguage": "JSONPath",
             "Comment": "A description of my state machine",
@@ -1110,13 +1101,13 @@ Resources:
               }
             }
           }
-        - {
-          ListRegionsArn: !GetAtt [ ListRegions, Arn ],
-          ListAssetsArn: !GetAtt [ ListAssets, Arn ],
-          ListDDNArn: !GetAtt [ ListDDN, Arn ],
-          ListEC2Arn: !GetAtt [ ListEC2, Arn ],
-          ListEBSArn: !GetAtt [ ListEBS, Arn ],
-          ListPGArn: !GetAtt [ ListPG, Arn ],
-          SortBackupsArn: !GetAtt [ SortBackups, Arn ],
-          FormatOutputArn: !GetAtt [ FormatOutput, Arn],
-        }
+Outputs:
+  StateMachineArn:
+    Description: ARN of the Bulk List Step Functions state machine
+    Value: !Ref BulkRestoreStepFunction
+  StateMachineName:
+    Description: Name of the Bulk List Step Functions state machine
+    Value: !GetAtt BulkRestoreStepFunction.Name
+  LogGroupName:
+    Description: CloudWatch Log Group for bulk list Lambda functions
+    Value: !Ref ListLogGroup

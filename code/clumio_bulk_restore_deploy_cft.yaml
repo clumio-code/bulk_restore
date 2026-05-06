@@ -17,17 +17,19 @@ Parameters:
     Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
     Type: String
     Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
+  CodeVersion:
+    Description: Increment this value to force Lambda code update when uploading new code to the same S3 key
+    Type: String
+    Default: '1'
 
 Resources:
   RestoreLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /aws/lambda/clumio-bulk-restore-log-group
       RetentionInDays: 7
   ValidateInput:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_validate_input
       Runtime: python3.12
       Timeout: 120
       Role: !Ref LambdaIAMRole
@@ -35,7 +37,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_validate_input
+      Description: !Sub 'Validates bulk restore input (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -49,7 +51,6 @@ Resources:
   Task:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_retrieve_restore_task
       Runtime: python3.12
       Timeout: 800
       Role: !Ref LambdaIAMRole
@@ -57,7 +58,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_retrieve_restore_task
+      Description: !Sub 'Retrieves and monitors restore task status (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -71,7 +72,6 @@ Resources:
   ListDDN:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_dynamodb_list_backups
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -79,7 +79,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_dynamodb_list_backups
+      Description: !Sub 'Lists DynamoDB backups for bulk restore (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -93,7 +93,6 @@ Resources:
   RestoreDDN:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_dynamodb_restore
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -101,7 +100,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_dynamodb_restore
+      Description: !Sub 'Restores DynamoDB from Clumio backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -115,7 +114,6 @@ Resources:
   ListEC2:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ec2_list_backups
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -123,7 +121,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ec2_list_backups
+      Description: !Sub 'Lists EC2 backups for bulk restore (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -137,7 +135,6 @@ Resources:
   RestoreEC2:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ec2_restore
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -145,7 +142,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ec2_restore
+      Description: !Sub 'Restores EC2 from Clumio backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -159,7 +156,6 @@ Resources:
   ListRDS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_rds_list_backups
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -167,7 +163,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ec2_list_backups
+      Description: !Sub 'Lists RDS backups for bulk restore (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -181,7 +177,6 @@ Resources:
   RestoreRDS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_rds_restore
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -189,7 +184,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ec2_restore
+      Description: !Sub 'Restores RDS from Clumio backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -203,7 +198,6 @@ Resources:
   ListEBS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ebs_list_backups
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -211,7 +205,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ebs_list_backups
+      Description: !Sub 'Lists EBS backups for bulk restore (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -225,7 +219,6 @@ Resources:
   RestoreEBS:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_ebs_restore
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -233,7 +226,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_ebs_restore
+      Description: !Sub 'Restores EBS from Clumio backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -247,7 +240,6 @@ Resources:
   ListPG:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_s3_list_backups
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -255,7 +247,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_s3_list_backups
+      Description: !Sub 'Lists S3 Protection Group backups for bulk restore (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -269,7 +261,6 @@ Resources:
   RestorePG:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: clumio_bulk_s3_restore
       Runtime: python3.12
       Timeout: 600
       Role: !Ref LambdaIAMRole
@@ -277,7 +268,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
         S3Key: !Ref LambdaZipObject
-      Description: clumio_bulk_s3_restore
+      Description: !Sub 'Restores S3 Protection Group from Clumio backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
       Environment:
@@ -291,11 +282,9 @@ Resources:
   BulkRestoreStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
-      StateMachineName: clumio-bulk-restore-state-machine
       RoleArn: !Ref LambdaIAMRole
       DefinitionString:
-        !Sub
-        - |-
+        !Sub |-
           {
             "Comment": "Clumio Bulk Restore",
             "StartAt": "Lambda Validate Input",
@@ -1275,15 +1264,13 @@ Resources:
               }
             }
           }
-        - {
-          ValidateInputArn: !GetAtt [ValidateInput, Arn],
-          ListRDSArn: !GetAtt [ListRDS, Arn],
-          RestoreRDSArn: !GetAtt [RestoreRDS, Arn],
-          ListEC2Arn: !GetAtt [ListEC2, Arn],
-          RestoreEC2Arn: !GetAtt [RestoreEC2, Arn],
-          ListEBSArn: !GetAtt [ListEBS, Arn],
-          RestoreEBSArn: !GetAtt [RestoreEBS, Arn],
-          ListDDNArn: !GetAtt [ListDDN, Arn],
-          RestoreDDNArn: !GetAtt [RestoreDDN, Arn],
-          TaskArn: !GetAtt [Task, Arn],
-        }
+Outputs:
+  StateMachineArn:
+    Description: ARN of the Bulk Restore Step Functions state machine
+    Value: !Ref BulkRestoreStepFunction
+  StateMachineName:
+    Description: Name of the Bulk Restore Step Functions state machine
+    Value: !GetAtt BulkRestoreStepFunction.Name
+  LogGroupName:
+    Description: CloudWatch Log Group for bulk restore Lambda functions
+    Value: !Ref RestoreLogGroup
