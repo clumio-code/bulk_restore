@@ -18,9 +18,9 @@ Parameters:
     Type: String
     Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
   CodeVersion:
-    Description: Increment this value to force Lambda code update when uploading new code to the same S3 key
+    Description: Build version of the bulk restore deployment. Stamped from the VERSION file at build time. Override at deploy time to force a Lambda code update when re-uploading under the same S3 key.
     Type: String
-    Default: '1'
+    Default: '__BULK_RESTORE_VERSION__'
 
 Resources:
   RestoreLogGroup:
@@ -1265,6 +1265,9 @@ Resources:
             }
           }
 Outputs:
+  Version:
+    Description: Bulk restore build version deployed in this stack
+    Value: !Ref CodeVersion
   StateMachineArn:
     Description: ARN of the Bulk Restore Step Functions state machine
     Value: !Ref BulkRestoreStepFunction

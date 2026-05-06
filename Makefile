@@ -18,6 +18,7 @@
 SHELL=/bin/bash
 
 test_reports := build/test_reports/py
+VERSION := $(shell cat VERSION)
 
 .PHONY: *
 
@@ -26,15 +27,20 @@ clean:
 	rm -rf build .mypy_cache .coverage *.egg-info dist code/.coverage
 
 build:
-	rm -rf build/lambda build/clumio_bulk_restore.zip build/clumio_bulk_restore_deploy_cft.yaml
+	rm -rf build/lambda build/clumio_bulk_restore.zip \
+		build/clumio_bulk_restore_deploy_cft.yaml build/clumio_bulk_list_deploy_cft.yaml
 	mkdir -p build/lambda
 	mkdir -p build/lambda/utils
 	cp code/*.py build/lambda/
 	cp -r code/utils/* build/lambda/utils
+	cp VERSION build/lambda/version.txt
 	pip install -r requirements.txt -t build/lambda/
 	cd build/lambda && zip -r ../clumio_bulk_restore.zip .
-	cp code/clumio_bulk_restore_deploy_cft.yaml build/
-	cp code/clumio_bulk_list_deploy_cft.yaml build/
+	sed 's/__BULK_RESTORE_VERSION__/$(VERSION)/g' \
+		code/clumio_bulk_restore_deploy_cft.yaml > build/clumio_bulk_restore_deploy_cft.yaml
+	sed 's/__BULK_RESTORE_VERSION__/$(VERSION)/g' \
+		code/clumio_bulk_list_deploy_cft.yaml > build/clumio_bulk_list_deploy_cft.yaml
+	@echo "Built bulk_restore version $(VERSION)"
 
 # Install the dependencies locally.
 install:
