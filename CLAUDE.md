@@ -55,7 +55,11 @@ PYTHONPATH=code python3 -m green -v code.test.test_common.TestUtilFunctions.test
 - Filters use MongoDB-style syntax: `{'field': {'$eq': value}}`
 
 ### Infrastructure
-- Two CloudFormation templates in `code/`: `clumio_bulk_restore_deploy_cft.yaml` (restore) and `clumio_bulk_list_deploy_cft.yaml` (list/discovery)
+- CloudFormation templates in `code/`:
+  - `clumio_bulk_deploy_cft.yaml` (preferred) — combined stack with both `BulkRestoreStateMachine` and `BulkListStateMachine`. Single shared Lambda set (the five `List*` backup Lambdas are defined once and referenced by both state machines), single `BulkLogGroup`. Outputs: `Version`, `BulkRestoreStateMachineArn/Name`, `BulkListStateMachineArn/Name`, `LogGroupName`.
+  - `clumio_bulk_restore_deploy_cft.yaml` (legacy) — restore-only stack
+  - `clumio_bulk_list_deploy_cft.yaml` (legacy) — list/discovery-only stack
+- All three CFTs are rendered into `build/` by `make build`. New deployments should use the combined CFT; the legacy two are kept for backward compatibility with existing stacks and can be retired once all users migrate.
 - Lambda runtime: Python 3.12, timeouts 120-600s
 - Example inputs and IAM policies in `examples/`
 
