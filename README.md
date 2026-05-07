@@ -78,8 +78,15 @@ Secret which can optionally be used to store your Clumio API token.
 > in examples folder.
 
 > [!NOTE]
-> The `clumio_bulk_restore_deploy_cft.yaml` file is the CloudFormation (CFT)
-> deployment template. Deploy this CFT template to setup the solution.
+> Three CloudFormation (CFT) deployment templates are available under `code/`:
+> - `clumio_bulk_deploy_cft.yaml` (preferred): combined stack containing both
+>   the bulk restore and bulk list/discovery state machines, with a shared set
+>   of Lambdas. Deploy this for the full solution.
+> - `clumio_bulk_restore_deploy_cft.yaml` (legacy): restore-only stack.
+> - `clumio_bulk_list_deploy_cft.yaml` (legacy): list/discovery-only stack.
+>
+> The legacy templates are kept for backward compatibility with existing
+> stacks; new deployments should use the combined template.
 
 ## Build
 
@@ -90,11 +97,22 @@ make build
 ```
 
 It will fetch the dependencies and generate the zip file `clumio_bulk_restore.zip`
-under the `build` directory alongside the `clumio_bulk_restore_deploy_cft.yaml`
-CloudFormation template.
+under the `build` directory alongside all three rendered CloudFormation templates
+(`clumio_bulk_deploy_cft.yaml`, `clumio_bulk_restore_deploy_cft.yaml`,
+`clumio_bulk_list_deploy_cft.yaml`).
 
 The zip file must be uploaded to a S3 bucket where it can be accessed by the
 CloudFormation Template when you deploy the solution.
+
+### Build version
+
+The build version is read from the `VERSION` file at the repo root and stamped
+by `make build` into:
+- `version.txt` packaged inside `clumio_bulk_restore.zip`
+- The `CodeVersion` parameter default in each rendered CFT
+- A `Version` stack output, visible in the CloudFormation console after deploy
+
+To cut a new release, bump `VERSION` and re-run `make build`.
 
 ## Running the Automation
 > [!TIP]
@@ -103,7 +121,7 @@ CloudFormation Template when you deploy the solution.
 > - [ ] Identify an IAM Role that has the ability to run both the lambda functions and the state machine.
 > - [ ] Add an AWS secret which has the clumio api token to access clumio service.
 > - [ ] Copy ZIP file from the git repository to the S3 bucket.
-> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role, AWS secret ARN as parameters to run the CFT YAML file.
+> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role, AWS secret ARN as parameters to run the CFT YAML file. To tag the deployed AWS resources (Lambdas, state machines, LogGroup), pass `--tags Key=...,Value=...` on `aws cloudformation create-stack`/`deploy` (or use the Tags section in the AWS Console wizard) — CloudFormation propagates stack-level tags to all supported resources automatically.
 > - [ ] Create an input JSON file for the state machine based upon the example JSON and the descriptions below.
 > - [ ] Execute the State machine and pass it your input JSON.
 > - [ ] If the input file has multiple restore sets, the restore automation will start multiple discovery threads.  One for each restore set.

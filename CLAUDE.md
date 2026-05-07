@@ -63,6 +63,27 @@ PYTHONPATH=code python3 -m green -v code.test.test_common.TestUtilFunctions.test
 - Lambda runtime: Python 3.12, timeouts 120-600s
 - Example inputs and IAM policies in `examples/`
 
+### Tagging deployed resources
+Customers tag the deployed resources via **stack-level tags** at deploy time — CloudFormation auto-propagates them to every Lambda, the state machines, and the LogGroup. No template parameters, no per-resource plumbing, unlimited pairs.
+
+```bash
+# create-stack syntax (space-separated Key=...,Value=... pairs)
+aws cloudformation create-stack \
+  --stack-name clumio-bulk-restore \
+  --template-body file://build/clumio_bulk_deploy_cft.yaml \
+  --capabilities CAPABILITY_IAM \
+  --tags Key=Environment,Value=prod Key=Owner,Value=platform-team Key=CostCenter,Value=12345
+
+# deploy syntax (space-separated Key=Value pairs — no commas, no Key=/Value= prefixes)
+aws cloudformation deploy \
+  --stack-name clumio-bulk-restore \
+  --template-file build/clumio_bulk_deploy_cft.yaml \
+  --capabilities CAPABILITY_IAM \
+  --tags Environment=prod Owner=platform-team CostCenter=12345
+```
+
+To update tags on an existing stack, run `aws cloudformation update-stack` with the new `--tags` set (CFN will re-propagate). Note: if a customer deploys via the AWS Console, the **Tags** section of the stack-creation wizard provides the same propagation behavior.
+
 ### Versioning
 - `VERSION` file at repo root is the single source of truth for the build version (e.g. `1.0.0`)
 - `make build` stamps it into the artifacts:
