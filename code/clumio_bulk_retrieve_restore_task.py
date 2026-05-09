@@ -28,6 +28,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class RestoreInProgress(Exception):
+    """Raised when a Clumio restore task is still running.
+
+    The state machine retries the Task Lambda invocation on this error;
+    Step Functions matches the error by class name (`RestoreInProgress`)
+    in the Retry/Catch blocks.
+    """
+
+
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 restore task."""
     clumio_token: str | None = events.get('clumio_token', None)
@@ -64,6 +73,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 }
     except common.TimeoutException:
         logger.warning('[%s] Task timed out after polling. Last known status: %s.', task_id, status)
-        return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}
+        raise RestoreInProgress(f'task not done - {status}') from None
 
     return {'status': 200, 'msg': 'task completed', 'inputs': inputs}

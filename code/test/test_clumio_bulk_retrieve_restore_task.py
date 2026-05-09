@@ -16,11 +16,20 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Generator
+from typing import Any
 from unittest import mock
 
 import clumio_bulk_retrieve_restore_task
+import common
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from clumioapi.models import read_task_response
+
+
+def _fake_simple_timer(*_args: Any, **_kwargs: Any) -> Generator[int]:
+    """Yield once then raise TimeoutException so the lambda's poll loop exits fast in tests."""
+    yield 0
+    raise common.TimeoutException('test timeout')
 
 
 class TestLambdaHandler(unittest.TestCase):
@@ -30,6 +39,11 @@ class TestLambdaHandler(unittest.TestCase):
         """Setup method for class."""
         api_client_patch = mock.patch('clumioapi.clumioapi_client.ClumioAPIClient')
         self.api_client = api_client_patch.start()
+        timer_patch = mock.patch(
+            'clumio_bulk_retrieve_restore_task.common.simple_timer',
+            side_effect=_fake_simple_timer,
+        )
+        timer_patch.start()
         self.context = LambdaContext()
         self.events = {
             'bear': 'bearer_token',
@@ -37,37 +51,34 @@ class TestLambdaHandler(unittest.TestCase):
             'inputs': {'task': 'task_id'},
         }
 
-    def test_read_task(self) -> None:
-        """Verify the return when the environment id is bad."""
-        # In-progress states.
+    def test_read_task_in_progress_raises(self) -> None:
+        """In-progress statuses raise RestoreInProgress so SFN retries the Task Lambda."""
         for status in ['queued', 'in_progress']:
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
                 status=status,
             )
-            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(
-                self.events, self.context
-            )
-            self.assertEqual(lambda_result['status'], 205)
-            self.assertIn('not done', lambda_result['msg'])
+            with self.assertRaises(clumio_bulk_retrieve_restore_task.RestoreInProgress):
+                clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
 
-        # Succeed state.
+    def test_read_task_completed(self) -> None:
+        """A completed task returns status 200."""
         self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
             status='completed',
         )
-        lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
-        self.assertEqual(lambda_result['status'], 200)
-        self.assertIn('completed', lambda_result['msg'])
+        result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
+        self.assertEqual(result['status'], 200)
+        self.assertIn('completed', result['msg'])
 
-        # Failure states.
+    def test_read_task_failure_states(self) -> None:
+        """Failed or aborted tasks return status 403."""
         for status in ['failed', 'aborted']:
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
                 status=status,
             )
-            lambda_result = clumio_bulk_retrieve_restore_task.lambda_handler(
-                self.events, self.context
-            )
-            self.assertEqual(lambda_result['status'], 403)
-            self.assertIn('failed', lambda_result['msg'])
+            result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
+            self.assertEqual(result['status'], 403)
+            self.assertIn('failed', result['msg'])
 
     def test_lambda_handler_exists(self) -> None:
+        """Verify the lambda handler exists."""
         self.assertTrue(hasattr(clumio_bulk_retrieve_restore_task, 'lambda_handler'))

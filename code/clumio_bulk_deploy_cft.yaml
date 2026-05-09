@@ -21,6 +21,18 @@ Parameters:
     Description: Build version of the bulk restore deployment. Stamped from the VERSION file at build time and surfaced as a stack Output for deployment auditing. Each Lambda's zip is keyed by version, so code updates happen automatically when a new build is deployed; this parameter is informational only.
     Type: String
     Default: '__BULK_RESTORE_VERSION__'
+  PollingIntervalSeconds:
+    Description: Seconds the state machine waits between Clumio restore-task status polls. Lower values detect completion sooner but generate more polling traffic; higher values reduce traffic for long-running restores.
+    Type: Number
+    Default: 60
+    MinValue: 1
+    MaxValue: 3600
+  PollingMaxAttempts:
+    Description: Maximum number of polling attempts before giving up on a single restore. Each attempt is one Task Lambda invocation that internally polls Clumio for up to ~10 minutes; default 200 covers ~48h of wall-time which is enough for restoring 64TB volumes. Increase for very large or slow restores.
+    Type: Number
+    Default: 200
+    MinValue: 1
+    MaxValue: 10000
 
 Resources:
   BulkLogGroup:
@@ -536,9 +548,12 @@ Resources:
                     },
                     "Split Individual RDS Restores": {
                       "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
                       "ItemProcessor": {
                         "ProcessorConfig": {
-                          "Mode": "INLINE"
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
                         },
                         "StartAt": "Pass Inputs to Restore RDS Lambda",
                         "States": {
@@ -605,6 +620,12 @@ Resources:
                             },
                             "Retry": [
                               {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
                                 "ErrorEquals": [
                                   "Lambda.ServiceException",
                                   "Lambda.AWSLambdaException",
@@ -616,6 +637,12 @@ Resources:
                                 "BackoffRate": 2
                               }
                             ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "RDS Restore Lambda Fail"
+                              }
+                            ],
                             "Next": "Task Status RDS"
                           },
                           "Task Status RDS": {
@@ -625,11 +652,6 @@ Resources:
                                 "Variable": "$.status",
                                 "NumericEquals": 200,
                                 "Next": "Restore Summary RDS"
-                              },
-                              {
-                                "Variable": "$.status",
-                                "NumericEquals": 205,
-                                "Next": "RDS Wait 30 and check task status again"
                               }
                             ],
                             "Default": "RDS Restore Lambda Fail"
@@ -643,17 +665,14 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 5,
                             "End": true
-                          },
-                          "RDS Wait 30 and check task status again": {
-                            "Type": "Wait",
-                            "Seconds": 30,
-                            "Next": "Pass inputs to Clumio Check Task Status RDS"
                           }
                         }
                       },
                       "Next": "Input Group Summary",
                       "ItemsPath": "$.records",
                       "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "record.$": "$$.Map.Item.Value"
                       }
@@ -720,9 +739,12 @@ Resources:
                     },
                     "Split Individual EC2 Restores": {
                       "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
                       "ItemProcessor": {
                         "ProcessorConfig": {
-                          "Mode": "INLINE"
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
                         },
                         "StartAt": "Pass Inputs to Restore EC2 Lambda",
                         "States": {
@@ -797,6 +819,12 @@ Resources:
                             },
                             "Retry": [
                               {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
                                 "ErrorEquals": [
                                   "Lambda.ServiceException",
                                   "Lambda.AWSLambdaException",
@@ -808,6 +836,12 @@ Resources:
                                 "BackoffRate": 2
                               }
                             ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "EC2 Restore Lambda Fail"
+                              }
+                            ],
                             "Next": "Task Status EC2"
                           },
                           "Task Status EC2": {
@@ -817,11 +851,6 @@ Resources:
                                 "Variable": "$.status",
                                 "NumericEquals": 200,
                                 "Next": "Restore Summary EC2"
-                              },
-                              {
-                                "Variable": "$.status",
-                                "NumericEquals": 205,
-                                "Next": "EC2 Wait 30 and check task status again"
                               }
                             ],
                             "Default": "EC2 Restore Lambda Fail"
@@ -835,17 +864,14 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 5,
                             "End": true
-                          },
-                          "EC2 Wait 30 and check task status again": {
-                            "Type": "Wait",
-                            "Seconds": 30,
-                            "Next": "Pass inputs to Clumio Check Task Status EC2"
                           }
                         }
                       },
                       "Next": "Input Group Summary",
                       "ItemsPath": "$.records",
                       "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "record.$": "$$.Map.Item.Value"
                       }
@@ -902,9 +928,12 @@ Resources:
                     },
                     "Split Individual DynamoDB Restores": {
                       "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
                       "ItemProcessor": {
                         "ProcessorConfig": {
-                          "Mode": "INLINE"
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
                         },
                         "StartAt": "Pass Inputs to Restore DynamoDB Lambda",
                         "States": {
@@ -976,6 +1005,12 @@ Resources:
                             },
                             "Retry": [
                               {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
                                 "ErrorEquals": [
                                   "Lambda.ServiceException",
                                   "Lambda.AWSLambdaException",
@@ -987,6 +1022,12 @@ Resources:
                                 "BackoffRate": 2
                               }
                             ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "DynamoDB Restore Lambda Fail"
+                              }
+                            ],
                             "Next": "Task Status DynamoDB"
                           },
                           "Task Status DynamoDB": {
@@ -996,11 +1037,6 @@ Resources:
                                 "Variable": "$.status",
                                 "NumericEquals": 200,
                                 "Next": "Restore Summary DynamoDB"
-                              },
-                              {
-                                "Variable": "$.status",
-                                "NumericEquals": 205,
-                                "Next": "DynamoDB Wait 30 and check task status again"
                               }
                             ],
                             "Default": "DynamoDB Restore Lambda Fail"
@@ -1009,17 +1045,14 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 5,
                             "End": true
-                          },
-                          "DynamoDB Wait 30 and check task status again": {
-                            "Type": "Wait",
-                            "Seconds": 30,
-                            "Next": "Pass inputs to Clumio Check Task Status DynamoDB"
                           }
                         }
                       },
                       "Next": "Input Group Summary",
                       "ItemsPath": "$.records",
                       "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "record.$": "$$.Map.Item.Value"
                       }
@@ -1076,9 +1109,12 @@ Resources:
                     },
                     "Split Individual EBS Restores": {
                       "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
                       "ItemProcessor": {
                         "ProcessorConfig": {
-                          "Mode": "INLINE"
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
                         },
                         "StartAt": "Pass Inputs to Restore EBS Lambda",
                         "States": {
@@ -1150,6 +1186,12 @@ Resources:
                             },
                             "Retry": [
                               {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
                                 "ErrorEquals": [
                                   "Lambda.ServiceException",
                                   "Lambda.AWSLambdaException",
@@ -1161,6 +1203,12 @@ Resources:
                                 "BackoffRate": 2
                               }
                             ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "EBS Restore Lambda Fail"
+                              }
+                            ],
                             "Next": "Task Status EBS"
                           },
                           "Task Status EBS": {
@@ -1170,11 +1218,6 @@ Resources:
                                 "Variable": "$.status",
                                 "NumericEquals": 200,
                                 "Next": "Restore Summary EBS"
-                              },
-                              {
-                                "Variable": "$.status",
-                                "NumericEquals": 205,
-                                "Next": "EBS Wait 30 and check task status again"
                               }
                             ],
                             "Default": "EBS Restore Lambda Fail"
@@ -1183,17 +1226,14 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 5,
                             "End": true
-                          },
-                          "EBS Wait 30 and check task status again": {
-                            "Type": "Wait",
-                            "Seconds": 30,
-                            "Next": "Pass inputs to Clumio Check Task Status EBS"
                           }
                         }
                       },
                       "Next": "Input Group Summary",
                       "ItemsPath": "$.records",
                       "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "record.$": "$$.Map.Item.Value"
                       }
@@ -1247,9 +1287,12 @@ Resources:
                     },
                     "Split Individual PG Restore": {
                       "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
                       "ItemProcessor": {
                         "ProcessorConfig": {
-                          "Mode": "INLINE"
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
                         },
                         "StartAt": "Pass Inputs to Restore PG Lambda",
                         "States": {
@@ -1316,6 +1359,12 @@ Resources:
                             },
                             "Retry": [
                               {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
                                 "ErrorEquals": [
                                   "Lambda.ServiceException",
                                   "Lambda.AWSLambdaException",
@@ -1327,20 +1376,21 @@ Resources:
                                 "BackoffRate": 2
                               }
                             ],
-                            "Next": "Choice"
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "PG Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status PG"
                           },
-                          "Choice": {
+                          "Task Status PG": {
                             "Type": "Choice",
                             "Choices": [
                               {
                                 "Variable": "$.status",
                                 "NumericEquals": 200,
                                 "Next": "Restore Summary PG"
-                              },
-                              {
-                                "Variable": "$.status",
-                                "NumericEquals": 205,
-                                "Next": "PG Wait 30 and check task status again"
                               }
                             ],
                             "Default": "PG Restore Lambda Fail"
@@ -1354,17 +1404,14 @@ Resources:
                             "Type": "Wait",
                             "Seconds": 5,
                             "End": true
-                          },
-                          "PG Wait 30 and check task status again": {
-                            "Type": "Wait",
-                            "Seconds": 30,
-                            "Next": "Pass inputs to Clumio Check Task Status PG"
                           }
                         }
                       },
                       "Next": "Input Group Summary",
                       "ItemsPath": "$.records",
                       "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
                         "target.$": "$.target",
                         "record.$": "$$.Map.Item.Value"
                       }
@@ -1546,9 +1593,12 @@ Resources:
                           },
                           "Split Run By DynamoDB Asset": {
                             "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
                             "ItemProcessor": {
                               "ProcessorConfig": {
-                                "Mode": "INLINE"
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
                               },
                               "StartAt": "Lambda List DynamoDB Latest Backup",
                               "States": {
@@ -1677,9 +1727,12 @@ Resources:
                           },
                           "Split Run By RDS Asset": {
                             "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
                             "ItemProcessor": {
                               "ProcessorConfig": {
-                                "Mode": "INLINE"
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
                               },
                               "StartAt": "Lambda List RDS Latest Backup",
                               "States": {
@@ -1808,9 +1861,12 @@ Resources:
                           },
                           "Split Run By EBS Asset": {
                             "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
                             "ItemProcessor": {
                               "ProcessorConfig": {
-                                "Mode": "INLINE"
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
                               },
                               "StartAt": "Lambda List EBS Latest Backup",
                               "States": {
@@ -1944,9 +2000,12 @@ Resources:
                           },
                           "Split Run By EC2 Asset": {
                             "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
                             "ItemProcessor": {
                               "ProcessorConfig": {
-                                "Mode": "INLINE"
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
                               },
                               "StartAt": "Lambda List EC2 Latest Backup",
                               "States": {
@@ -2075,9 +2134,12 @@ Resources:
                           },
                           "Split Run By PG Asset": {
                             "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
                             "ItemProcessor": {
                               "ProcessorConfig": {
-                                "Mode": "INLINE"
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
                               },
                               "StartAt": "Lambda List PG Latest Backup",
                               "States": {

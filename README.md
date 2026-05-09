@@ -78,15 +78,10 @@ Secret which can optionally be used to store your Clumio API token.
 > in examples folder.
 
 > [!NOTE]
-> Three CloudFormation (CFT) deployment templates are available under `code/`:
-> - `clumio_bulk_deploy_cft.yaml` (preferred): combined stack containing both
->   the bulk restore and bulk list/discovery state machines, with a shared set
->   of Lambdas. Deploy this for the full solution.
-> - `clumio_bulk_restore_deploy_cft.yaml` (legacy): restore-only stack.
-> - `clumio_bulk_list_deploy_cft.yaml` (legacy): list/discovery-only stack.
->
-> The legacy templates are kept for backward compatibility with existing
-> stacks; new deployments should use the combined template.
+> CloudFormation deployment template: `code/clumio_bulk_deploy_cft.yaml`. It
+> deploys the full solution — both the bulk restore and bulk list/discovery
+> state machines, plus a shared set of Lambdas. Deploy this template to set
+> up everything.
 
 ## Build
 
@@ -98,9 +93,8 @@ make build
 
 It will fetch the dependencies and generate a versioned zip
 (`clumio_bulk_restore-<version>.zip`, where `<version>` is read from the
-`VERSION` file at the repo root) under the `build` directory, alongside all
-three rendered CloudFormation templates (`clumio_bulk_deploy_cft.yaml`,
-`clumio_bulk_restore_deploy_cft.yaml`, `clumio_bulk_list_deploy_cft.yaml`).
+`VERSION` file at the repo root) under the `build` directory, alongside the
+rendered CloudFormation template (`clumio_bulk_deploy_cft.yaml`).
 
 The zip file must be uploaded to a S3 bucket where it can be accessed by the
 CloudFormation Template when you deploy the solution. Upload it under its
@@ -128,6 +122,23 @@ updates happen automatically; no parameter overrides required.
 > old parameter is dropped and the new default is used. Customers who had set
 > a custom `LambdaZipObject` value should pass a matching `LambdaZipObjectPrefix`
 > on the upgrade.
+
+### Tuning for scale
+
+Two CFT parameters control how the state machine waits on long-running Clumio
+restores. Defaults are sized for restoring 64TB-class volumes:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `PollingIntervalSeconds` | `60` | Seconds between Clumio task-status polls |
+| `PollingMaxAttempts` | `200` | Maximum polling attempts per restore (~48h wall-time at the default interval; each Task Lambda invocation also internally polls Clumio for ~10 min) |
+
+Override them on `aws cloudformation deploy --parameter-overrides
+PollingMaxAttempts=400 PollingIntervalSeconds=120` for unusually slow or
+unusually fast workloads. The inner per-record / per-asset Maps are
+**Distributed Maps** with `MaxConcurrency: 100` — concurrent restore /
+list-asset fanout is bounded by that ceiling and by your account's Lambda
+concurrency quota.
 
 ## Running the Automation
 > [!TIP]

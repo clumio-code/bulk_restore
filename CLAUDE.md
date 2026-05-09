@@ -41,7 +41,7 @@ PYTHONPATH=code python3 -m green -v code.test.test_common.TestUtilFunctions.test
 4. **List backups** (`clumio_bulk_{ebs,ec2,rds,dynamodb,s3}_list_backups`) - Finds backups within time window
 5. **Sort/filter** (`clumio_bulk_sort_list_backups`) - Removes empty results
 6. **Restore** (`clumio_bulk_{ebs,ec2,rds,dynamodb,s3}_restore`) - Initiates restores via Clumio API
-7. **Monitor** (`clumio_bulk_retrieve_restore_task`) - Polls task status (up to 10 min, 20s intervals)
+7. **Monitor** (`clumio_bulk_retrieve_restore_task`) - Polls Clumio task status. The Lambda polls internally for up to 10 min (20s intervals) and either returns `{status: 200/403, ...}` on terminal state or **raises `RestoreInProgress`** when the task is still running. The state machine's `Retry` block on this Lambda re-invokes it (default: every `PollingIntervalSeconds=60` for up to `PollingMaxAttempts=200` attempts ≈ 48h wall-time, sized for 64TB-class restores). Once attempts are exhausted, a matching `Catch` routes to the resource-type fail state.
 
 ### Key Modules
 - **`code/common.py`** - Shared utilities: API client init (with exponential backoff retry), Clumio token management (env var or AWS Secrets Manager), pagination, tag filtering, timestamp filtering, environment lookups
@@ -55,13 +55,21 @@ PYTHONPATH=code python3 -m green -v code.test.test_common.TestUtilFunctions.test
 - Filters use MongoDB-style syntax: `{'field': {'$eq': value}}`
 
 ### Infrastructure
-- CloudFormation templates in `code/`:
-  - `clumio_bulk_deploy_cft.yaml` (preferred) — combined stack with both `BulkRestoreStateMachine` and `BulkListStateMachine`. Single shared Lambda set (the five `List*` backup Lambdas are defined once and referenced by both state machines), single `BulkLogGroup`. Outputs: `Version`, `BulkRestoreStateMachineArn/Name`, `BulkListStateMachineArn/Name`, `LogGroupName`.
-  - `clumio_bulk_restore_deploy_cft.yaml` (legacy) — restore-only stack
-  - `clumio_bulk_list_deploy_cft.yaml` (legacy) — list/discovery-only stack
-- All three CFTs are rendered into `build/` by `make build`. New deployments should use the combined CFT; the legacy two are kept for backward compatibility with existing stacks and can be retired once all users migrate.
-- Lambda runtime: Python 3.12, timeouts 120-600s
+- Single CloudFormation template in `code/`: `clumio_bulk_deploy_cft.yaml`. Defines `BulkRestoreStateMachine` and `BulkListStateMachine` over a shared Lambda set (the five `List*` backup Lambdas are defined once and referenced by both state machines), a shared `BulkLogGroup`. Stack outputs: `Version`, `BulkRestoreStateMachineArn/Name`, `BulkListStateMachineArn/Name`, `LogGroupName`.
+- Rendered into `build/clumio_bulk_deploy_cft.yaml` by `make build` (with the `__BULK_RESTORE_VERSION__` placeholder substituted at build time).
+- Lambda runtime: Python 3.12, timeouts 120-800s
 - Example inputs and IAM policies in `examples/`
+
+### Step Functions scale architecture
+Both state machines fan out via nested Map states. The **inner per-record / per-asset Maps** (5 in each state machine, one per resource type) run as **Distributed Maps** (`ProcessorConfig.Mode: DISTRIBUTED`, `ExecutionType: STANDARD`) — each iteration runs as a child execution, so its events come out of the child's 25,000-event budget rather than the parent's. This lifts the practical ceiling from ~150-250 records/execution (with INLINE Maps) to ~10,000+. Parameters baked into each Distributed Map: `MaxConcurrency: 100`, `ToleratedFailurePercentage: 100` (don't abort the whole batch on a few failed items).
+The outer Maps (`Split Runs by Input Groups`, `Split Run per Individual Region`, `Split Run per Resource Type`) stay INLINE — their iteration counts are inherently small (groups, regions, fixed-5 resource types). The IAM role on the state machines (`!Ref LambdaIAMRole`) needs `states:StartExecution` for child executions; the existing `examples/iam_policy_permissions_example.json` already grants `states:*`.
+
+### Polling-loop design
+The polling-loop pattern that detects long-running Clumio restores **does not** sit in the state machine as an explicit Wait→re-invoke loop. Instead:
+- `clumio_bulk_retrieve_restore_task.py` raises `RestoreInProgress` when the task is still running (status would have been 205 in the old design)
+- The Task-Lambda invocation in each resource type's polling section has a `Retry` matching `RestoreInProgress` (interval `${PollingIntervalSeconds}`, max attempts `${PollingMaxAttempts}`) and a `Catch` that routes to the resource's existing fail state when attempts are exhausted
+- Each retry contributes ~3 events (`TaskFailed` + retry overhead) instead of ~12 events for the old `Wait` + `Pass` + `Task Lambda` + `Choice` cycle
+- Tunable via the `PollingIntervalSeconds` (default 60) and `PollingMaxAttempts` (default 200, ≈48h cap) CFT parameters; bump `PollingMaxAttempts` for very large or slow restores
 
 ### Tagging deployed resources
 Customers tag the deployed resources via **stack-level tags** at deploy time — CloudFormation auto-propagates them to every Lambda, the state machines, and the LogGroup. No template parameters, no per-resource plumbing, unlimited pairs.
