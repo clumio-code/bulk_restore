@@ -9,16 +9,16 @@ Parameters:
     Description: Role to run lambda functions
     Type: String
     Default: arn:aws:iam::<account_id>:role/clumio-bulk-restore-role
-  LambdaZipObject:
-    Description: path and name of zip file in LambdaCodeLocationBucket
+  LambdaZipObjectPrefix:
+    Description: Prefix of the Lambda zip object key in LambdaCodeLocationBucket. The build version is appended at deploy time (final key is "<prefix>-<version>.zip"), so each release pulls a unique S3 key and CloudFormation re-deploys the Lambda code.
     Type: String
-    Default: clumio_bulk_restore.zip
+    Default: clumio_bulk_restore
   ClumioTokenArn:
     Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
     Type: String
     Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
   CodeVersion:
-    Description: Build version of the bulk list deployment. Stamped from the VERSION file at build time. Override at deploy time to force a Lambda code update when re-uploading under the same S3 key.
+    Description: Build version of the bulk list deployment. Stamped from the VERSION file at build time and surfaced as a stack Output for deployment auditing. Each Lambda's zip is keyed by version, so code updates happen automatically when a new build is deployed; this parameter is informational only.
     Type: String
     Default: '__BULK_RESTORE_VERSION__'
 
@@ -36,7 +36,7 @@ Resources:
       Handler: clumio_bulk_invoke_rest_apis.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Invokes various Clumio REST APIs (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -57,7 +57,7 @@ Resources:
       Handler: clumio_bulk_list_regions.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists regions of given account (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -78,7 +78,7 @@ Resources:
       Handler: clumio_bulk_list_assets.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists assets by account, region, and resource type (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -99,7 +99,7 @@ Resources:
       Handler: clumio_bulk_dynamodb_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists latest DynamoDB backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -120,7 +120,7 @@ Resources:
       Handler: clumio_bulk_ec2_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists latest EC2 backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -141,7 +141,7 @@ Resources:
       Handler: clumio_bulk_rds_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists latest RDS backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -162,7 +162,7 @@ Resources:
       Handler: clumio_bulk_ebs_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists latest EBS backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -183,7 +183,7 @@ Resources:
       Handler: clumio_bulk_s3_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Lists latest Protection Group backup (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -204,7 +204,7 @@ Resources:
       Handler: clumio_bulk_sort_list_backups.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Sorts backup list by region and resource type (v${CodeVersion})'
       TracingConfig:
         Mode: Active
@@ -225,7 +225,7 @@ Resources:
       Handler: clumio_bulk_format_output.lambda_handler
       Code:
         S3Bucket: !Ref LambdaCodeLocationBucket
-        S3Key: !Ref LambdaZipObject
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
       Description: !Sub 'Formats bulk list output (v${CodeVersion})'
       TracingConfig:
         Mode: Active

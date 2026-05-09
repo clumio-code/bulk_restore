@@ -96,23 +96,38 @@ To build you will need a Unix type shell (`bash`, `zsh`, ...), Python 3.12, `mak
 make build
 ```
 
-It will fetch the dependencies and generate the zip file `clumio_bulk_restore.zip`
-under the `build` directory alongside all three rendered CloudFormation templates
-(`clumio_bulk_deploy_cft.yaml`, `clumio_bulk_restore_deploy_cft.yaml`,
-`clumio_bulk_list_deploy_cft.yaml`).
+It will fetch the dependencies and generate a versioned zip
+(`clumio_bulk_restore-<version>.zip`, where `<version>` is read from the
+`VERSION` file at the repo root) under the `build` directory, alongside all
+three rendered CloudFormation templates (`clumio_bulk_deploy_cft.yaml`,
+`clumio_bulk_restore_deploy_cft.yaml`, `clumio_bulk_list_deploy_cft.yaml`).
 
 The zip file must be uploaded to a S3 bucket where it can be accessed by the
-CloudFormation Template when you deploy the solution.
+CloudFormation Template when you deploy the solution. Upload it under its
+versioned filename — the rendered CFT references that exact key.
 
 ### Build version
 
 The build version is read from the `VERSION` file at the repo root and stamped
 by `make build` into:
-- `version.txt` packaged inside `clumio_bulk_restore.zip`
-- The `CodeVersion` parameter default in each rendered CFT
-- A `Version` stack output, visible in the CloudFormation console after deploy
+- `version.txt` packaged inside the Lambda zip
+- The zip filename itself: `clumio_bulk_restore-<version>.zip`
+- Each Lambda's `Code.S3Key` in the rendered CFT (so each release loads from a
+  unique S3 key and CloudFormation re-pulls the Lambda code on stack update)
+- The `CodeVersion` parameter default and the `Version` stack output, both
+  visible in the CloudFormation console after deploy
 
-To cut a new release, bump `VERSION` and re-run `make build`.
+To cut a new release, bump `VERSION` and re-run `make build`. Upload the new
+versioned zip to S3 and run a stack update against the new CFT — Lambda code
+updates happen automatically; no parameter overrides required.
+
+> [!IMPORTANT]
+> The CFT parameter for the Lambda zip key was renamed from `LambdaZipObject`
+> (full filename) to `LambdaZipObjectPrefix` (prefix only, default
+> `clumio_bulk_restore`). On first stack update against the new template, the
+> old parameter is dropped and the new default is used. Customers who had set
+> a custom `LambdaZipObject` value should pass a matching `LambdaZipObjectPrefix`
+> on the upgrade.
 
 ## Running the Automation
 > [!TIP]

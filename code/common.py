@@ -225,9 +225,16 @@ def get_clumio_api_client(
         raw_response=raw_response,
     )
     client = clumioapi_client.ClumioAPIClient(config)
-    client.base_controller.client.session.mount('https://', retry_adapter)
-    client.base_controller.client.session.mount('http://', retry_adapter)
-
+    # In SDK v0.x each controller holds its own RESTclient/requests.Session, so
+    # mount the retry adapter on every controller's session that exposes one.
+    for name in dir(client):
+        if name.startswith('_'):
+            continue
+        rest_client = getattr(getattr(client, name, None), 'client', None)
+        session = getattr(rest_client, 'session', None)
+        if session is not None and hasattr(session, 'mount'):
+            session.mount('https://', retry_adapter)
+            session.mount('http://', retry_adapter)
     return client
 
 
