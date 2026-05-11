@@ -24,6 +24,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     base_url: str = events.get('base_url', common.DEFAULT_BASE_URL)
     source_account: str | None = events.get('source_account', None)
     source_regions: list[str] | None = events.get('source_regions', None)
+    source_asset_types: dict = events.get('source_asset_types', {}) or {}
+    # The inner "Split Run per Resource Type" Map iterates this list; emit only
+    # the resource types the caller asked for so we don't fan out 5 empty
+    # iterations per region.
+    resource_types = list(source_asset_types.keys())
     if source_account is None:
         return {
             'status': 400,
@@ -66,4 +71,5 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             continue
         regions.append({'region': env.AwsRegion, 'environment_id': env.Id})
     logger.info('Found %s AWS environments.', len(regions))
-    return {'status': 200, 'regions': regions}
+    logger.info('Resource types to fan out per region: %s', resource_types)
+    return {'status': 200, 'regions': regions, 'resource_types': resource_types}

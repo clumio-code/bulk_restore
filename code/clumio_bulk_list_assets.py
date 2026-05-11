@@ -90,14 +90,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     elif resource_type == 'DynamoDB':
         list_function = client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables
     elif resource_type == 'ProtectionGroup':
-        try:
-            org_unit_response = client.organizational_units_v2.list_organizational_units()
-        except clumio_exception.ClumioException as e:
-            logger.error('List organizational units failed with exception: %s', e)
-            return {'status': 500, 'msg': f'List OUs error - {e}'}
-        if org_unit_response and org_unit_response.Embedded and org_unit_response.Embedded.Items:
-            ou_id = org_unit_response.Embedded.Items[0].Id
-            list_filter = {'organizational_unit_id': {'$in': [ou_id]}}
+        # /protection-groups spans environments; its filter API does not accept
+        # environment_id. Filtering is driven by the per-PG `name` predicate
+        # added below (one list call per protection_group entry in the input).
+        pg_filter: dict = {}
+        if protection_status:
+            pg_filter['protection_status'] = {'$in': protection_status}
+        if is_deleted:
+            pg_filter['is_deleted'] = {'$in': is_deleted}
+        list_filter = pg_filter
         list_function = client.protection_groups_v1.list_protection_groups
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}

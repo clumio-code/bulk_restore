@@ -2131,13 +2131,7 @@ Resources:
                 "ItemsPath": "$.regions",
                 "ItemSelector": {
                   "region.$": "$$.Map.Item.Value",
-                  "resource_types": [
-                    "EC2",
-                    "EBS",
-                    "ProtectionGroup",
-                    "RDS",
-                    "DynamoDB"
-                  ]
+                  "resource_types.$": "$.resource_types"
                 },
                 "Next": "Lambda Format Output"
               },
