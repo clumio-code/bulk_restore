@@ -20,7 +20,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import exceptions, models
+from clumioapi.exceptions import clumio_exception
+from clumioapi.models import (
+    dynamo_db_restore_source_backup_options,
+    dynamo_db_table_restore_source,
+    dynamo_db_table_restore_target,
+    restore_aws_dynamodb_table_v1_request,
+)
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -59,21 +65,27 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_env_id = common.get_environment_id_or_raise(client, target_account, target_region)
 
     # Build the restore request.
-    source = models.dynamo_db_table_restore_source.DynamoDBTableRestoreSource(
-        securevault_backup=models.dynamo_db_restore_source_backup_options.DynamoDBRestoreSourceBackupOptions(
-            backup_id=source_backup_id,
+    source = dynamo_db_table_restore_source.DynamoDBTableRestoreSource(
+        SecurevaultBackup=dynamo_db_restore_source_backup_options.DynamoDBRestoreSourceBackupOptions(
+            BackupId=source_backup_id,
         )
     )
-    restore_target = models.dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
-        environment_id=target_env_id,
-        table_name=f'{source_table_name}-{change_set_name}',
-        tags=tags,
+    restore_target = dynamo_db_table_restore_target.DynamoDBTableRestoreTarget(
+        EnvironmentId=target_env_id,
+        TableName=f'{source_table_name}-{change_set_name}',
+        Tags=common.tags_from_dict(tags) if tags else None,
     )
-    request = models.restore_aws_dynamodb_table_v1_request.RestoreAwsDynamodbTableV1Request(
-        source=source,
-        target=restore_target,
+    request = restore_aws_dynamodb_table_v1_request.RestoreAwsDynamodbTableV1Request(
+        Source=source,
+        Target=restore_target,
     )
-
+    logger.info(
+        '%s .... %s .... %s .... %s',
+        source_backup_id,
+        target_env_id,
+        f'{source_table_name}-{change_set_name}',
+        tags,
+    )
     inputs = {
         'resource_type': 'DynamoDB',
         'run_token': common.generate_random_string(),
@@ -84,20 +96,10 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     try:
         # Run restore.
         logger.info('Restore DynamoDB table from backup ID %s...', source_backup_id)
-        raw_response, result = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(
-            body=request
-        )
-        # Return if non-ok status.
-        if not raw_response.ok:
-            logger.error('DynamoDB restore failed with message: %s', raw_response.content)
-            return {
-                'status': raw_response.status_code,
-                'msg': raw_response.content,
-                'inputs': inputs,
-            }
-        logger.info('DynamoDB restore task %s started successfully.', result.task_id)
-        inputs['task'] = result.task_id
-        return {'status': 200, 'msg': 'completed', 'inputs': inputs}
-    except exceptions.clumio_exception.ClumioException as e:
+        result = client.restored_aws_dynamodb_tables_v1.restore_aws_dynamodb_table(body=request)
+    except clumio_exception.ClumioException as e:
         logger.error('DynamoDB restore failed with exception: %s', e)
-        return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+        return {'status': 400, 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+    logger.info('DynamoDB restore task %s started successfully.', result.TaskId)
+    inputs['task'] = result.TaskId
+    return {'status': 200, 'msg': 'completed', 'inputs': inputs}

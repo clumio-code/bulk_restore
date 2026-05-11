@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -85,11 +84,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List protection groups with filter %s...', api_filter)
         pg_list = common.get_total_list(
             function=client.protection_groups_v1.list_protection_groups,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
         )
         if not pg_list:
             return {'status': 207, 'records': [], 'target': target, 'msg': 'empty pg list'}
-        pg_id = pg_list[0].p_id
+        pg_id = pg_list[0].Id
         logger.info('Found protection group %s.', search_name)
 
         # List S3 assets based on the bucket names and pg name.
@@ -101,7 +100,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List buckets with filter %s...', api_filter)
         pg_assets = common.get_total_list(
             function=client.protection_groups_s3_assets_v1.list_protection_group_s3_assets,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
         )
         logger.info('Found %s buckets in the protection group.', len(pg_assets))
         if not pg_assets:
@@ -113,18 +112,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             }
         if not s3_bucket_names:
             # All buckets in the protection group will be restored.
-            asset_ids = [item.p_id for item in pg_assets]
-            s3_bucket_names = [item.bucket_name for item in pg_assets]
+            asset_ids = [item.Id for item in pg_assets]
+            s3_bucket_names = [item.BucketName for item in pg_assets]
         else:
             # Remove any buckets from the filter that do not exist in the protection group.
-            all_bucket_names = [item.bucket_name for item in pg_assets]
+            all_bucket_names = [item.BucketName for item in pg_assets]
             bucket_names = s3_bucket_names.copy()
             for bucket_name in bucket_names:
                 if bucket_name not in all_bucket_names:
                     logger.warning('Bucket %s does not exist in the protection group.', bucket_name)
                     s3_bucket_names.remove(bucket_name)
             # Only buckets matching filter will be restored.
-            asset_ids = [item.p_id for item in pg_assets if item.bucket_name in s3_bucket_names]
+            asset_ids = [item.Id for item in pg_assets if item.BucketName in s3_bucket_names]
             logger.info('Found %s buckets matching the filter.', len(asset_ids))
             if not asset_ids:
                 # All buckets filtered out so nothing to restore in this protection group.
@@ -143,7 +142,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List backups for protection group %s...', search_name)
         raw_backup_records = common.get_total_list(
             function=client.backup_protection_groups_v1.list_backup_protection_groups,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
             sort=sort,
         )
         logger.info(
@@ -156,7 +155,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         for item in raw_backup_records:
             records.append(
                 {
-                    'backup_id': item.p_id,
+                    'backup_id': item.Id,
                     'pg_name': search_name,
                     'pg_asset_ids': asset_ids,
                     'pg_bucket_names': s3_bucket_names,
@@ -167,4 +166,4 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     except clumio_exception.ClumioException as e:
         # This exception could come from multiple API calls above.
         logger.error('Hit exception trying to retrieve protection group backups: %s', e)
-        return {'status': 401, 'msg': f'List pg assets error - {e}'}
+        return {'status': 500, 'msg': f'List pg assets error - {e}'}

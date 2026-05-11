@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -34,39 +33,41 @@ logger = logging.getLogger(__name__)
 def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
     """Convert backup record object to dictionary."""
     gsi_list = []
-    if backup.global_secondary_indexes:
-        for gsi in backup.global_secondary_indexes:
-            gsi_dict = {
-                'index_name': gsi.index_name,
-                'key_schema': [schema.__dict__ for schema in gsi.key_schema],
-                'projection': gsi.projection.__dict__,
-                'provisioned_throughput': common.to_dict_or_none(gsi.provisioned_throughput),
+    for gsi in backup.GlobalSecondaryIndexes or []:
+        gsi_list.append(
+            {
+                'index_name': gsi.IndexName,
+                'key_schema': [common.to_dict_or_none(s) for s in gsi.KeySchema or []],
+                'projection': common.to_dict_or_none(gsi.Projection),
+                'provisioned_throughput': common.to_dict_or_none(gsi.ProvisionedThroughput),
             }
-            gsi_list.append(gsi_dict)
+        )
 
     lsi_list = []
-    if backup.local_secondary_indexes:
-        for lsi in backup.local_secondary_indexes:
-            lsi_dict = {
-                'index_name': lsi.index_name,
-                'key_schema': [schema.__dict__ for schema in lsi.key_schema],
-                'projection': lsi.projection.__dict__,
+    for lsi in backup.LocalSecondaryIndexes or []:
+        lsi_list.append(
+            {
+                'index_name': lsi.IndexName,
+                'key_schema': [common.to_dict_or_none(s) for s in lsi.KeySchema or []],
+                'projection': common.to_dict_or_none(lsi.Projection),
             }
-            lsi_list.append(lsi_dict)
+        )
 
     return {
-        'table_name': backup.table_name,
+        'table_name': backup.TableName,
         'backup_record': {
-            'source_backup_id': backup.p_id,
-            'source_table_id': backup.table_id,
-            'source_table_name': backup.table_name,
-            'source_ddn_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
-            'source_sse_specification': common.to_dict_or_none(backup.sse_specification),
-            'source_provisioned_throughput': common.to_dict_or_none(backup.provisioned_throughput),
-            'source_billing_mode': backup.billing_mode,
-            'source_table_class': backup.table_class,
-            'source_expire_time': backup.expiration_timestamp,
-            'source_global_table_version': backup.global_table_version,
+            'source_backup_id': backup.Id,
+            'source_table_id': backup.TableId,
+            'source_table_name': backup.TableName,
+            'source_ddn_tags': [{'key': tag.Key, 'value': tag.Value} for tag in backup.Tags]
+            if backup.Tags
+            else None,
+            'source_sse_specification': common.to_dict_or_none(backup.SseSpecification),
+            'source_provisioned_throughput': common.to_dict_or_none(backup.ProvisionedThroughput),
+            'source_billing_mode': backup.BillingMode,
+            'source_table_class': backup.TableClass,
+            'source_expire_time': backup.ExpirationTimestamp,
+            'source_global_table_version': backup.GlobalTableVersion,
             'source_global_secondary_indexes': gsi_list or None,
             'source_local_secondary_indexes': lsi_list or None,
             'source_replicas': None,
@@ -121,12 +122,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List DynamoDB backups with filter %s...', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_dynamodb_tables_v1.list_backup_aws_dynamodb_tables,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
         logger.error('List DynamoDB backups failed with exception: %s', e)
-        return {'status': 401, 'msg': f'List backup error - {e}'}
+        return {'status': 500, 'msg': f'List backup error - {e}'}
 
     # Log number of records found before filtering.
     logger.info('Found %s backup records before applying filters.', len(raw_backup_records))
@@ -135,7 +136,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Filter records by account/region...')
     backup_records: list[dict] = []
     for backup in raw_backup_records:
-        if backup.account_native_id == source_account and backup.aws_region == source_region:
+        if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = backup_record_obj_to_dict(backup)
             backup_records.append(backup_record)
 

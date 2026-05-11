@@ -20,7 +20,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import exceptions, models
+from clumioapi.exceptions import clumio_exception
+from clumioapi.models import (
+    rds_resource_restore_source,
+    rds_resource_restore_source_air_gap_options,
+    rds_resource_restore_target,
+    restore_aws_rds_resource_v1_request,
+)
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -67,24 +73,22 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_env_id = common.get_environment_id_or_raise(client, target_account, target_region)
 
     # Perform the restore.
-    restore_source = models.rds_resource_restore_source.RdsResourceRestoreSource(
-        backup=models.rds_resource_restore_source_air_gap_options.RdsResourceRestoreSourceAirGapOptions(
-            backup_id=source_backup_id
+    restore_source = rds_resource_restore_source.RdsResourceRestoreSource(
+        Backup=rds_resource_restore_source_air_gap_options.RdsResourceRestoreSourceAirGapOptions(
+            BackupId=source_backup_id
         )
     )
-    restore_target = models.rds_resource_restore_target.RdsResourceRestoreTarget(
-        environment_id=target_env_id,
-        instance_class=backup_record['source_instance_class'],
-        is_publicly_accessible=backup_record['source_is_publicly_accessible'] or None,
-        kms_key_native_id=target_kms_key_native_id or None,
-        name=target_rds_name,
-        security_group_native_ids=target_security_group_native_ids or None,
-        subnet_group_name=target_subnet_group_name or None,
-        tags=target_resource_tags,
+    restore_target = rds_resource_restore_target.RdsResourceRestoreTarget(
+        EnvironmentId=target_env_id,
+        KmsKeyNativeId=target_kms_key_native_id or None,
+        Name=target_rds_name,
+        SecurityGroupNativeIds=target_security_group_native_ids or None,
+        SubnetGroupName=target_subnet_group_name or None,
+        Tags=common.tags_from_dict(target_resource_tags) if target_resource_tags else None,
     )
-    request = models.restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
-        source=restore_source,
-        target=restore_target,
+    request = restore_aws_rds_resource_v1_request.RestoreAwsRdsResourceV1Request(
+        Source=restore_source,
+        Target=restore_target,
     )
     inputs = {
         'resource_type': 'RDS',
@@ -94,22 +98,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         'source_resource_id': source_resource_id,
     }
     try:
-        logger.info('Restore RDS from backup %s...', restore_source.backup.backup_id)
-        raw_response, result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(
-            body=request
-        )
-
-        # Return if non-ok status.
-        if not raw_response.ok:
-            logger.error('RDS restore failed with message: %s', raw_response.content)
-            return {
-                'status': raw_response.status_code,
-                'msg': raw_response.content,
-                'inputs': inputs,
-            }
-        logger.info('RDS restore task %s completed successfully.', result.task_id)
-        inputs['task'] = result.task_id
-        return {'status': 200, 'msg': 'completed', 'inputs': inputs}
-    except exceptions.clumio_exception.ClumioException as e:
+        logger.info('Restore RDS from backup %s...', source_backup_id)
+        result = client.restored_aws_rds_resources_v1.restore_aws_rds_resource(body=request)
+    except clumio_exception.ClumioException as e:
         logger.error('RDS restore failed with exception: %s', e)
-        return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+        return {'status': 400, 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+    logger.info('RDS restore task %s completed successfully.', result.TaskId)
+    inputs['task'] = result.TaskId
+    return {'status': 200, 'msg': 'completed', 'inputs': inputs}

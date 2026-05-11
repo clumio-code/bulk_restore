@@ -39,8 +39,7 @@
         "secretsmanager:GetSecretValue"
       ],
       "Resource": [
-        "[ARN to Restore Token in Secret Manager]",
-        "[ARN to List Token in Secret Manager]"
+        "[ARN to Clumio API Token in Secret Manager]"
       ]
     }
   ]

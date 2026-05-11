@@ -20,7 +20,15 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import api_helper, exceptions, models
+from clumioapi.exceptions import clumio_exception
+from clumioapi.models import (
+    ec2_instance_restore_target,
+    ec2_restore_ebs_block_device_mapping,
+    ec2_restore_network_interface,
+    ec2_restore_source,
+    ec2_restore_target,
+    restore_aws_ec2_instance_v1_request,
+)
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -84,13 +92,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     target_env_id = common.get_environment_id_or_raise(client, target_account, target_region)
 
     # Build the restore request.
-    restore_source = models.ec2_restore_source.EC2RestoreSource(backup_id=source_backup_id)
+    restore_source = ec2_restore_source.EC2RestoreSource(BackupId=source_backup_id)
     ebs_mapping = [
-        models.ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
-            kms_key_native_id=target_kms_key_native_id or ebs_storage['kms_key_native_id'],
-            name=ebs_storage['name'],
-            volume_native_id=ebs_storage['volume_native_id'],
-            tags=target_volume_append_tags + common.tags_from_dict(ebs_storage['tags']),
+        ec2_restore_ebs_block_device_mapping.EC2RestoreEbsBlockDeviceMapping(
+            KmsKeyNativeId=target_kms_key_native_id or ebs_storage['kms_key_native_id'],
+            Name=ebs_storage['name'],
+            VolumeNativeId=ebs_storage['volume_native_id'],
+            Tags=(
+                common.tags_from_dict(target_volume_append_tags)
+                if target_volume_append_tags
+                else []
+            )
+            + (common.tags_from_dict(ebs_storage['tags']) if ebs_storage.get('tags') else []),
         )
         for ebs_storage in backup_record.get('source_ebs_storage_list', [])
     ]
@@ -112,35 +125,35 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     for interface in backup_record.get('source_network_interface_list', []):
         subnet_native_id = subnet_native_id or interface['subnet_native_id']
         network_interfaces.append(
-            models.ec2_restore_network_interface.EC2RestoreNetworkInterface(
-                device_index=interface['device_index'],
-                network_interface_native_id='',
-                security_group_native_ids=target_security_group_native_ids
+            ec2_restore_network_interface.EC2RestoreNetworkInterface(
+                DeviceIndex=interface['device_index'],
+                NetworkInterfaceNativeId='',
+                SecurityGroupNativeIds=target_security_group_native_ids
                 or interface['security_group_native_ids'],
-                subnet_native_id=subnet_native_id,
-                restore_default=not target_eni_cfg_from_backup,
-                restore_from_backup=target_eni_cfg_from_backup,
+                SubnetNativeId=subnet_native_id,
+                RestoreDefault=not target_eni_cfg_from_backup,
+                RestoreFromBackup=target_eni_cfg_from_backup,
             )
         )
-    instance_restore_target = models.ec2_instance_restore_target.EC2InstanceRestoreTarget(
-        ami_native_id=target_ami_native_id,
-        aws_az=target_az,
-        ebs_block_device_mappings=ebs_mapping,
-        environment_id=target_env_id,
-        iam_instance_profile_name=target_iam_instance_profile_name or None,
-        tags=target_instance_tags,
-        key_pair_name=target_key_pair_name or backup_record['source_key_pair_name'],
-        network_interfaces=network_interfaces,
-        subnet_native_id=subnet_native_id,
-        should_power_on=should_power_on,
-        vpc_native_id=target_vpc_native_id,
+    instance_restore_target = ec2_instance_restore_target.EC2InstanceRestoreTarget(
+        AmiNativeId=target_ami_native_id,
+        AwsAz=target_az,
+        EbsBlockDeviceMappings=ebs_mapping,
+        EnvironmentId=target_env_id,
+        IamInstanceProfileName=target_iam_instance_profile_name or None,
+        Tags=common.tags_from_dict(target_instance_tags) if target_instance_tags else None,
+        KeyPairName=target_key_pair_name or backup_record['source_key_pair_name'],
+        NetworkInterfaces=network_interfaces,
+        SubnetNativeId=subnet_native_id,
+        ShouldPowerOn=should_power_on,
+        VpcNativeId=target_vpc_native_id,
     )
-    restore_target = models.ec2_restore_target.EC2RestoreTarget(
-        instance_restore_target=instance_restore_target,
+    restore_target = ec2_restore_target.EC2RestoreTarget(
+        InstanceRestoreTarget=instance_restore_target,
     )
-    request = models.restore_aws_ec2_instance_v1_request.RestoreAwsEc2InstanceV1Request(
-        source=restore_source,
-        target=restore_target,
+    request = restore_aws_ec2_instance_v1_request.RestoreAwsEc2InstanceV1Request(
+        Source=restore_source,
+        Target=restore_target,
     )
 
     inputs = {
@@ -152,22 +165,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
 
     try:
-        request_dict = api_helper.to_dictionary(request)
-        logger.info('Restore EC2 instance request: %s', request_dict)
-        raw_response, result = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(
-            body=request
-        )
-        # Return if non-ok status.
-        if not raw_response.ok:
-            logger.error('EC2 restore failed with message: %s', raw_response.content)
-            return {
-                'status': raw_response.status_code,
-                'msg': raw_response.content,
-                'inputs': inputs,
-            }
-        logger.info('EC2 restore task %s started successfully.', result.task_id)
-        inputs['task'] = result.task_id
-        return {'status': 200, 'msg': 'completed', 'inputs': inputs}
-    except exceptions.clumio_exception.ClumioException as e:
+        logger.info('Restore EC2 instance request: %s', request.dict())
+        result = client.restored_aws_ec2_instances_v1.restore_aws_ec2_instance(body=request)
+    except clumio_exception.ClumioException as e:
         logger.error('EC2 restore failed with exception: %s', e)
-        return {'status': '400', 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+        return {'status': 400, 'msg': f'Failure during restore request: {e}', 'inputs': inputs}
+    logger.info('EC2 restore task %s started successfully.', result.TaskId)
+    inputs['task'] = result.TaskId
+    return {'status': 200, 'msg': 'completed', 'inputs': inputs}

@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -72,12 +71,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List EBS backups...')
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_ebs_volumes_v2.list_backup_aws_ebs_volumes,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
         logger.error('List EBS backups failed with exception: %s', e)
-        return {'status': 401, 'msg': f'List backup error - {e}'}
+        return {'status': 500, 'msg': f'List backup error - {e}'}
 
     # Log number of records found before filtering.
     logger.info('Found %s backup records before applying filters.', len(raw_backup_records))
@@ -86,21 +85,23 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Filter records by account/region...')
     backup_records = []
     for backup in raw_backup_records:
-        if backup.account_native_id == source_account and backup.aws_region == source_region:
+        if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = {
-                'volume_id': backup.volume_native_id,
+                'volume_id': backup.VolumeNativeId,
                 'backup_record': {
-                    'source_backup_id': backup.p_id,
-                    'source_volume_id': backup.volume_native_id,
-                    'source_volume_tags': [tag.__dict__ for tag in backup.tags]
-                    if backup.tags
+                    'source_backup_id': backup.Id,
+                    'source_volume_id': backup.VolumeNativeId,
+                    'source_volume_tags': [
+                        {'key': tag.Key, 'value': tag.Value} for tag in backup.Tags
+                    ]
+                    if backup.Tags
                     else None,
-                    'source_encrypted_flag': backup.is_encrypted,
-                    'source_az': backup.aws_az,
-                    'source_kms': backup.kms_key_native_id,
-                    'source_expire_time': backup.expiration_timestamp,
-                    'source_volume_type': backup.volume_type,
-                    'source_iops': backup.iops,
+                    'source_encrypted_flag': backup.IsEncrypted,
+                    'source_az': backup.AwsAz,
+                    'source_kms': backup.KmsKeyNativeId,
+                    'source_expire_time': backup.ExpirationTimestamp,
+                    'source_volume_type': backup.VolumeType,
+                    'source_iops': backup.Iops,
                 },
             }
             backup_records.append(backup_record)

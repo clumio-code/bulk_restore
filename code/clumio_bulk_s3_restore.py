@@ -16,13 +16,23 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
 import common
-from clumioapi import models
 from clumioapi.exceptions import clumio_exception
+from clumioapi.models import (
+    protection_group_restore_source,
+    protection_group_restore_target,
+    restore_protection_group_v1_request,
+    source_object_filters,
+)
+
+
+def _snake_to_pascal(s: str) -> str:
+    """Convert snake_case key to PascalCase for v1.0.x SDK model kwargs."""
+    return ''.join(p.capitalize() for p in s.split('_'))
+
 
 if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -55,48 +65,50 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     try:
         logger.info('List S3 buckets with filter %s...', api_filter)
         s3_buckets = common.get_total_list(
-            function=client.aws_s3_buckets_v1.list_aws_s3_buckets, api_filter=json.dumps(api_filter)
+            function=client.aws_s3_buckets_v1.list_aws_s3_buckets, api_filter=api_filter
         )
         if not s3_buckets:
             logger.error('Target bucket %s not found.', target_bucket)
             return {'status': 207, 'msg': 'no target bucket found', 'inputs': target}
-        target_bucket_id = s3_buckets[0].p_id
-        target_env_id = s3_buckets[0].environment_id
+        target_bucket_id = s3_buckets[0].Id
+        target_env_id = s3_buckets[0].EnvironmentId
         logger.info('Found target bucket %s with ID %s.', target_bucket, target_bucket_id)
 
-        # Build the restore request.
-        source_input = models.protection_group_restore_source.ProtectionGroupRestoreSource(
-            backup_id=record['backup_id'],
-            object_filters=models.source_object_filters.SourceObjectFilters(
-                **record['object_filters']
-            ),
-            protection_group_s3_asset_ids=record['pg_asset_ids'],
+        # Build the restore request. SourceObjectFilters expects PascalCase kwargs,
+        # while record['object_filters'] uses snake_case (set by s3_list_backups).
+        object_filters_kwargs = {
+            _snake_to_pascal(k): v for k, v in record.get('object_filters', {}).items()
+        }
+        source_input = protection_group_restore_source.ProtectionGroupRestoreSource(
+            BackupId=record['backup_id'],
+            ObjectFilters=source_object_filters.SourceObjectFilters(**object_filters_kwargs),
+            ProtectionGroupS3AssetIds=record['pg_asset_ids'],
         )
-        target_input = models.protection_group_restore_target.ProtectionGroupRestoreTarget(
-            bucket_id=target_bucket_id,
-            environment_id=target_env_id,
-            overwrite=True,
-            restore_original_storage_class=True,
-            prefix=target_prefix,
+        target_input = protection_group_restore_target.ProtectionGroupRestoreTarget(
+            BucketId=target_bucket_id,
+            EnvironmentId=target_env_id,
+            Overwrite=True,
+            RestoreOriginalStorageClass=True,
+            Prefix=target_prefix,
         )
-        req_body = models.restore_protection_group_v1_request.RestoreProtectionGroupV1Request(
-            source=source_input, target=target_input
+        req_body = restore_protection_group_v1_request.RestoreProtectionGroupV1Request(
+            Source=source_input, Target=target_input
         )
 
         # Send the restore request.
-        logger.info('Restore protection group from backup %s...', source_input.backup_id)
-        _, response = client.restored_protection_groups_v1.restore_protection_group(body=req_body)
-        if not response.task_id:
+        logger.info('Restore protection group from backup %s...', source_input.BackupId)
+        response = client.restored_protection_groups_v1.restore_protection_group(body=req_body)
+        if not response.TaskId:
             logger.error('Failed to start protection group restore task.')
             return {'status': 207, 'msg': 'restore failed', 'inputs': target}
         inputs = {
             'resource_type': 'ProtectionGroup',
-            'task': response.task_id,
+            'task': response.TaskId,
             'source_backup_id': record['backup_id'],
             'target': target,
         }
-        logger.info('Started protection group restore task %s.', response.task_id)
+        logger.info('Started protection group restore task %s.', response.TaskId)
         return {'status': 200, 'inputs': inputs, 'msg': 'completed'}
     except clumio_exception.ClumioException as e:
         logger.error('Protection group restore failed with exception: %s', e)
-        return {'status': 401, 'msg': f'Error - {e}'}
+        return {'status': 500, 'msg': f'Error - {e}'}

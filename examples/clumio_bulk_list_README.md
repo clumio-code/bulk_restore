@@ -49,9 +49,10 @@ To build you will need a Unix type shell (`bash`, `zsh`, ...), Python 3.12, `mak
 make build
 ```
 
-It will fetch the dependencies and generate the zip file `clumio_bulk_restore.zip`
-under the `build` directory alongside the `clumio_bulk_restore_deploy_cft.yaml`
-CloudFormation template.
+It will fetch the dependencies and generate a versioned zip
+(`clumio_bulk_restore-<version>.zip`, where `<version>` is read from the `VERSION`
+file at the repo root) under the `build` directory, alongside the rendered
+`clumio_bulk_deploy_cft.yaml` CloudFormation template.
 
 The zip file must be uploaded to a S3 bucket where it can be accessed by the
 CloudFormation Template when you deploy the solution.

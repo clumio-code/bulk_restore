@@ -1,0 +1,2193 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Clumio bulk restore + list combined deployment
+Parameters:
+  LambdaCodeLocationBucket:
+    Description: S3 Bucket that contains the lambda zip file
+    Type: String
+    Default: clumio-bulk-restore
+  LambdaIAMRole:
+    Description: Role to run lambda functions
+    Type: String
+    Default: arn:aws:iam::<account_id>:role/clumio-bulk-restore-role
+  LambdaZipObjectPrefix:
+    Description: Prefix of the Lambda zip object key in LambdaCodeLocationBucket. The build version is appended at deploy time (final key is "<prefix>-<version>.zip"), so each release pulls a unique S3 key and CloudFormation re-deploys the Lambda code.
+    Type: String
+    Default: clumio_bulk_restore
+  ClumioTokenArn:
+    Description: ARN of the Clumio token secret in AWS Secrets Manager, if left empty, API token has to be passed as input during state machine execution.
+    Type: String
+    Default: arn:aws:secretsmanager:<aws_region>:<aws_account_id>:secret:clumio/automation/api-token
+  CodeVersion:
+    Description: Build version of the bulk restore deployment. Stamped from the VERSION file at build time and surfaced as a stack Output for deployment auditing. Each Lambda's zip is keyed by version, so code updates happen automatically when a new build is deployed; this parameter is informational only.
+    Type: String
+    Default: '__BULK_RESTORE_VERSION__'
+  PollingIntervalSeconds:
+    Description: Seconds the state machine waits between Clumio restore-task status polls. Lower values detect completion sooner but generate more polling traffic; higher values reduce traffic for long-running restores.
+    Type: Number
+    Default: 60
+    MinValue: 1
+    MaxValue: 3600
+  PollingMaxAttempts:
+    Description: Maximum number of polling attempts before giving up on a single restore. Each attempt is one Task Lambda invocation that internally polls Clumio for up to ~10 minutes; default 200 covers ~48h of wall-time which is enough for restoring 64TB volumes. Increase for very large or slow restores.
+    Type: Number
+    Default: 200
+    MinValue: 1
+    MaxValue: 10000
+
+Resources:
+  BulkLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 7
+
+  # ---------------------------------------------------------------------------
+  # Restore-only Lambdas
+  # ---------------------------------------------------------------------------
+  ValidateInput:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 120
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_validate_input.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Validates bulk restore input (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  Task:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 800
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_retrieve_restore_task.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Retrieves and monitors restore task status (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  RestoreDDN:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_dynamodb_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Restores DynamoDB from Clumio backup (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  RestoreEC2:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ec2_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Restores EC2 from Clumio backup (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  RestoreRDS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_rds_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Restores RDS from Clumio backup (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  RestoreEBS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ebs_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Restores EBS from Clumio backup (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  RestorePG:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_s3_restore.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Restores S3 Protection Group from Clumio backup (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+
+  # ---------------------------------------------------------------------------
+  # List-only Lambdas
+  # ---------------------------------------------------------------------------
+  InvokeAPI:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_invoke_rest_apis.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Invokes various Clumio REST APIs (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListRegions:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 120
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_list_regions.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists regions of given account (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListAssets:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_list_assets.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists assets by account, region, and resource type (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  SortBackups:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 120
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_sort_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Sorts backup list by region and resource type (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  FormatOutput:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 120
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_format_output.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Formats bulk list output (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+
+  # ---------------------------------------------------------------------------
+  # Shared list-backups Lambdas (used by both state machines)
+  # ---------------------------------------------------------------------------
+  ListDDN:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_dynamodb_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists DynamoDB backups (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListEC2:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ec2_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists EC2 backups (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListRDS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_rds_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists RDS backups (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListEBS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_ebs_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists EBS backups (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+  ListPG:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Timeout: 600
+      Role: !Ref LambdaIAMRole
+      Handler: clumio_bulk_s3_list_backups.lambda_handler
+      Code:
+        S3Bucket: !Ref LambdaCodeLocationBucket
+        S3Key: !Sub '${LambdaZipObjectPrefix}-__BULK_RESTORE_VERSION__.zip'
+      Description: !Sub 'Lists S3 Protection Group backups (v${CodeVersion})'
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CLUMIO_TOKEN_ARN: !Ref ClumioTokenArn
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: !Ref BulkLogGroup
+        SystemLogLevel: INFO
+
+  # ---------------------------------------------------------------------------
+  # State machines
+  # ---------------------------------------------------------------------------
+  BulkRestoreStateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      RoleArn: !Ref LambdaIAMRole
+      DefinitionString:
+        !Sub |-
+          {
+            "Comment": "Clumio Bulk Restore",
+            "StartAt": "Lambda Validate Input",
+            "States": {
+              "Lambda Validate Input": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "OutputPath": "$.Payload",
+                "Parameters": {
+                  "Payload.$": "$",
+                  "FunctionName": "${ValidateInput}:$LATEST"
+                },
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "Next": "Check Validation Input"
+              },
+              "Check Validation Input": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.status",
+                    "NumericEquals": 200,
+                    "Next": "Split Runs by Input Groups"
+                  }
+                ],
+                "Default": "Bulk Restore Summary"
+              },
+              "Split Runs by Input Groups": {
+                "Type": "Map",
+                "ItemProcessor": {
+                  "ProcessorConfig": {
+                    "Mode": "INLINE"
+                  },
+                  "StartAt": "Choose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS, ProtectionGroup",
+                  "States": {
+                    "Choose Run Type by Input Group Resource Type: RDS, EC2, DynamoDB, EBS, ProtectionGroup": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "RDS",
+                          "Next": "Pass Inputs to List Backup Lambda RDS"
+                        },
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "EC2",
+                          "Next": "Pass Inputs to List Backup Lambda EC2"
+                        },
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "DynamoDB",
+                          "Next": "Pass Inputs to List Backup Lambda DynamoDB"
+                        },
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "EBS",
+                          "Next": "Pass Inputs to List Backup Lambda EBS"
+                        },
+                        {
+                          "Variable": "$.ResourceType",
+                          "StringEquals": "ProtectionGroup",
+                          "Next": "Pass Inputs to List Backup Lambda PG"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Pass Inputs to List Backup Lambda RDS": {
+                      "Type": "Pass",
+                      "Next": "Lambda List RDS Backups",
+                      "Parameters": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "source_account.$": "$.target.source_account",
+                        "source_region.$": "$.target.source_region",
+                        "search_direction.$": "$.target.search_direction",
+                        "search_tag_key.$": "$.target.search_tag_key",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset",
+                        "search_tag_value.$": "$.target.search_tag_value"
+                      }
+                    },
+                    "Lambda List RDS Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListRDS}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List RDS Lambda status"
+                    },
+                    "Check List RDS Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual RDS Restores"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual RDS Restores": {
+                      "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Pass Inputs to Restore RDS Lambda",
+                        "States": {
+                          "Pass Inputs to Restore RDS Lambda": {
+                            "Type": "Pass",
+                            "Next": "Lambda Restore RDS",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target"
+                            }
+                          },
+                          "Lambda Restore RDS": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestoreRDS}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore RDS Lambda status"
+                          },
+                          "Check Restore RDS Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status RDS"
+                              }
+                            ],
+                            "Default": "RDS Restore Lambda Fail"
+                          },
+                          "Pass inputs to Clumio Check Task Status RDS": {
+                            "Type": "Pass",
+                            "Next": "Lambda Clumio Check Task Status RDS",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            }
+                          },
+                          "Lambda Clumio Check Task Status RDS": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${Task}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "RDS Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status RDS"
+                          },
+                          "Task Status RDS": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary RDS"
+                              }
+                            ],
+                            "Default": "RDS Restore Lambda Fail"
+                          },
+                          "Restore Summary RDS": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "RDS Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    },
+                    "Input Group Summary": {
+                      "Type": "Wait",
+                      "Seconds": 5,
+                      "End": true
+                    },
+                    "Fail Type/List": {
+                      "Type": "Wait",
+                      "Seconds": 5,
+                      "End": true
+                    },
+                    "Pass Inputs to List Backup Lambda EC2": {
+                      "Type": "Pass",
+                      "Next": "Lambda List EC2 Backups",
+                      "Parameters": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "source_account.$": "$.target.source_account",
+                        "source_region.$": "$.target.source_region",
+                        "search_direction.$": "$.target.search_direction",
+                        "search_tag_key.$": "$.target.search_tag_key",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset",
+                        "search_tag_value.$": "$.target.search_tag_value"
+                      }
+                    },
+                    "Lambda List EC2 Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListEC2}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List EC2 Lambda status"
+                    },
+                    "Check List EC2 Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual EC2 Restores"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual EC2 Restores": {
+                      "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Pass Inputs to Restore EC2 Lambda",
+                        "States": {
+                          "Pass Inputs to Restore EC2 Lambda": {
+                            "Type": "Pass",
+                            "Next": "Lambda Restore EC2",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target",
+                              "target_account.$": "$.target.target_account",
+                              "target_region.$": "$.target.target_region",
+                              "target_az.$": "$.target.target_az",
+                              "target_iam_instance_profile_name.$": "$.target.target_iam_instance_profile_name",
+                              "target_key_pair_name.$": "$.target.target_key_pair_name",
+                              "target_security_group_native_ids.$": "$.target.target_security_group_native_ids",
+                              "target_subnet_native_id.$": "$.target.target_subnet_native_id",
+                              "target_kms_key_native_id.$": "$.target.target_kms_key_native_id"
+                            }
+                          },
+                          "Lambda Restore EC2": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestoreEC2}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore EC2 Lambda status"
+                          },
+                          "Check Restore EC2 Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status EC2"
+                              }
+                            ],
+                            "Default": "EC2 Restore Lambda Fail"
+                          },
+                          "Pass inputs to Clumio Check Task Status EC2": {
+                            "Type": "Pass",
+                            "Next": "Lambda Clumio Check Task Status EC2",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            }
+                          },
+                          "Lambda Clumio Check Task Status EC2": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${Task}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "EC2 Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status EC2"
+                          },
+                          "Task Status EC2": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary EC2"
+                              }
+                            ],
+                            "Default": "EC2 Restore Lambda Fail"
+                          },
+                          "Restore Summary EC2": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "EC2 Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    },
+                    "Pass Inputs to List Backup Lambda DynamoDB": {
+                      "Type": "Pass",
+                      "Next": "Lambda List DynamoDB Backups",
+                      "Parameters": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "source_account.$": "$.target.source_account",
+                        "source_region.$": "$.target.source_region",
+                        "search_direction.$": "$.target.search_direction",
+                        "search_tag_key.$": "$.target.search_tag_key",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset",
+                        "search_tag_value.$": "$.target.search_tag_value"
+                      }
+                    },
+                    "Lambda List DynamoDB Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListDDN}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List DynamoDB Lambda status"
+                    },
+                    "Check List DynamoDB Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual DynamoDB Restores"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual DynamoDB Restores": {
+                      "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Pass Inputs to Restore DynamoDB Lambda",
+                        "States": {
+                          "Pass Inputs to Restore DynamoDB Lambda": {
+                            "Type": "Pass",
+                            "Next": "Lambda Restore DynamoDB",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target"
+                            }
+                          },
+                          "Lambda Restore DynamoDB": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestoreDDN}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore DynamoDB Lambda status"
+                          },
+                          "Check Restore DynamoDB Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status DynamoDB"
+                              }
+                            ],
+                            "Default": "DynamoDB Restore Lambda Fail"
+                          },
+                          "DynamoDB Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "Pass inputs to Clumio Check Task Status DynamoDB": {
+                            "Type": "Pass",
+                            "Next": "Lambda Clumio Check Task Status DynamoDB",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            }
+                          },
+                          "Lambda Clumio Check Task Status DynamoDB": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${Task}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "DynamoDB Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status DynamoDB"
+                          },
+                          "Task Status DynamoDB": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary DynamoDB"
+                              }
+                            ],
+                            "Default": "DynamoDB Restore Lambda Fail"
+                          },
+                          "Restore Summary DynamoDB": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    },
+                    "Pass Inputs to List Backup Lambda EBS": {
+                      "Type": "Pass",
+                      "Next": "Lambda List EBS Backups",
+                      "Parameters": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "source_account.$": "$.target.source_account",
+                        "source_region.$": "$.target.source_region",
+                        "search_direction.$": "$.target.search_direction",
+                        "search_tag_key.$": "$.target.search_tag_key",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset",
+                        "search_tag_value.$": "$.target.search_tag_value"
+                      }
+                    },
+                    "Lambda List EBS Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListEBS}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List EBS Lambda status"
+                    },
+                    "Check List EBS Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual EBS Restores"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual EBS Restores": {
+                      "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Pass Inputs to Restore EBS Lambda",
+                        "States": {
+                          "Pass Inputs to Restore EBS Lambda": {
+                            "Type": "Pass",
+                            "Next": "Lambda Restore EBS",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target"
+                            }
+                          },
+                          "Lambda Restore EBS": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestoreEBS}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore EBS Lambda status"
+                          },
+                          "Check Restore EBS Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status EBS"
+                              }
+                            ],
+                            "Default": "EBS Restore Lambda Fail"
+                          },
+                          "EBS Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "Pass inputs to Clumio Check Task Status EBS": {
+                            "Type": "Pass",
+                            "Next": "Lambda Clumio Check Task Status EBS",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            }
+                          },
+                          "Lambda Clumio Check Task Status EBS": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${Task}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "EBS Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status EBS"
+                          },
+                          "Task Status EBS": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary EBS"
+                              }
+                            ],
+                            "Default": "EBS Restore Lambda Fail"
+                          },
+                          "Restore Summary EBS": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    },
+                    "Pass Inputs to List Backup Lambda PG": {
+                      "Type": "Pass",
+                      "Next": "Lambda List PG Backups",
+                      "Parameters": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "search_pg_name.$": "$.target.search_pg_name",
+                        "search_bucket_names.$": "$.target.search_bucket_names",
+                        "start_search_day_offset.$": "$.target.start_search_day_offset",
+                        "end_search_day_offset.$": "$.target.end_search_day_offset"
+                      }
+                    },
+                    "Lambda List PG Backups": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${ListPG}:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Check List PG Lambda status"
+                    },
+                    "Check List PG Lambda status": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "NumericEquals": 200,
+                          "Next": "Split Individual PG Restore"
+                        }
+                      ],
+                      "Default": "Fail Type/List"
+                    },
+                    "Split Individual PG Restore": {
+                      "Type": "Map",
+                      "MaxConcurrency": 100,
+                      "ToleratedFailurePercentage": 100,
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Pass Inputs to Restore PG Lambda",
+                        "States": {
+                          "Pass Inputs to Restore PG Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "record.$": "$.record",
+                              "target.$": "$.target"
+                            },
+                            "Next": "Lambda Restore PG"
+                          },
+                          "Lambda Restore PG": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${RestorePG}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "Check Restore PG Lambda status"
+                          },
+                          "Check Restore PG Lambda status": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Pass inputs to Clumio Check Task Status PG"
+                              }
+                            ],
+                            "Default": "PG Restore Lambda Fail"
+                          },
+                          "Pass inputs to Clumio Check Task Status PG": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "inputs.$": "$.inputs"
+                            },
+                            "Next": "Lambda Clumio Check Task Status PG"
+                          },
+                          "Lambda Clumio Check Task Status PG": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${Task}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "IntervalSeconds": ${PollingIntervalSeconds},
+                                "MaxAttempts": ${PollingMaxAttempts},
+                                "BackoffRate": 1.0
+                              },
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Catch": [
+                              {
+                                "ErrorEquals": ["RestoreInProgress"],
+                                "Next": "PG Restore Lambda Fail"
+                              }
+                            ],
+                            "Next": "Task Status PG"
+                          },
+                          "Task Status PG": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "Variable": "$.status",
+                                "NumericEquals": 200,
+                                "Next": "Restore Summary PG"
+                              }
+                            ],
+                            "Default": "PG Restore Lambda Fail"
+                          },
+                          "Restore Summary PG": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "PG Restore Lambda Fail": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Input Group Summary",
+                      "ItemsPath": "$.records",
+                      "ItemSelector": {
+                        "clumio_token.$": "$$.Execution.Input.clumio_token",
+                        "base_url.$": "$$.Execution.Input.base_url",
+                        "target.$": "$.target",
+                        "record.$": "$$.Map.Item.Value"
+                      }
+                    }
+                  }
+                },
+                "ItemsPath": "$.RestoreGroups",
+                "Next": "Bulk Restore Summary",
+                "ItemSelector": {
+                  "target.$": "$$.Map.Item.Value",
+                  "ResourceType.$": "$$.Map.Item.Value.ResourceType"
+                }
+              },
+              "Bulk Restore Summary": {
+                "Type": "Wait",
+                "Seconds": 5,
+                "End": true
+              }
+            }
+          }
+
+  BulkListStateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      RoleArn: !Ref LambdaIAMRole
+      DefinitionString:
+        !Sub |-
+          {
+            "QueryLanguage": "JSONPath",
+            "Comment": "A description of my state machine",
+            "StartAt": "Lambda List Regions",
+            "States": {
+              "Lambda List Regions": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "Next": "Split Run per Individual Region",
+                "Parameters": {
+                  "FunctionName": "${ListRegions}:$LATEST",
+                  "Payload.$": "$"
+                },
+                "OutputPath": "$.Payload"
+              },
+              "Split Run per Individual Region": {
+                "Type": "Map",
+                "ItemProcessor": {
+                  "ProcessorConfig": {
+                    "Mode": "INLINE"
+                  },
+                  "StartAt": "Split Run per Resource Type",
+                  "States": {
+                    "Split Run per Resource Type": {
+                      "Type": "Map",
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "INLINE"
+                        },
+                        "StartAt": "Pass Input to List Asset",
+                        "States": {
+                          "Pass Input to List Asset": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_asset_types.$": "$$.Execution.Input.source_asset_types",
+                              "asset_meta_status.$": "$$.Execution.Input.asset_meta_status",
+                              "region.$": "$.region",
+                              "resource_type.$": "$.resource_type"
+                            },
+                            "Next": "Choose Run by Resource Type"
+                          },
+                          "Choose Run by Resource Type": {
+                            "Type": "Choice",
+                            "Choices": [
+                              {
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "EBS"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.EBS",
+                                    "IsPresent": true
+                                  }
+                                ],
+                                "Next": "Lambda List EBS Assets"
+                              },
+                              {
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "EC2"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.EC2",
+                                    "IsPresent": true
+                                  }
+                                ],
+                                "Next": "Lambda List EC2 Assets"
+                              },
+                              {
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "RDS"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.RDS",
+                                    "IsPresent": true
+                                  }
+                                ],
+                                "Next": "Lambda List RDS Assets"
+                              },
+                              {
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "DynamoDB"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.DynamoDB",
+                                    "IsPresent": true
+                                  }
+                                ],
+                                "Next": "Lambda List DynamoDB Assets"
+                              },
+                              {
+                                "And":[
+                                  {
+                                    "Variable": "$.resource_type",
+                                    "StringEquals": "ProtectionGroup"
+                                  },
+                                  {
+                                    "Variable": "$$.Execution.Input.source_asset_types.ProtectionGroup",
+                                    "IsPresent": true
+                                  }
+                                ],
+                                "Next": "Lambda List PG Assets"
+                              }
+                            ],
+                            "Default": "Fail Type/List"
+                          },
+                          "Lambda List DynamoDB Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By DynamoDB Asset"
+                          },
+                          "Split Run By DynamoDB Asset": {
+                            "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
+                              },
+                              "StartAt": "Lambda List DynamoDB Latest Backup",
+                              "States": {
+                                "Lambda List DynamoDB Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListDDN}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "End": true
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_table_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass DynamoDB List Backup to Sort Lambda"
+                          },
+                          "Pass DynamoDB List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "DynamoDB",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort DynamoDB Backup List"
+                          },
+                          "Lambda Sort DynamoDB Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List RDS Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By RDS Asset"
+                          },
+                          "Split Run By RDS Asset": {
+                            "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
+                              },
+                              "StartAt": "Lambda List RDS Latest Backup",
+                              "States": {
+                                "Lambda List RDS Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListRDS}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "End": true
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_resource_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass RDS List Backup to Sort Lambda"
+                          },
+                          "Pass RDS List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "RDS",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort RDS Backup List"
+                          },
+                          "Lambda Sort RDS Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List EBS Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By EBS Asset"
+                          },
+                          "Split Run By EBS Asset": {
+                            "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
+                              },
+                              "StartAt": "Lambda List EBS Latest Backup",
+                              "States": {
+                                "Lambda List EBS Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListEBS}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "End": true
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_volume_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass EBS List Backup to Sort Lambda"
+                          },
+                          "Pass EBS List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "EBS",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda Sort EBS Backup List"
+                          },
+                          "Lambda Sort EBS Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Fail Type/List": {
+                            "Type": "Wait",
+                            "Seconds": 5,
+                            "End": true
+                          },
+                          "Lambda List EC2 Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By EC2 Asset"
+                          },
+                          "Split Run By EC2 Asset": {
+                            "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
+                              },
+                              "StartAt": "Lambda List EC2 Latest Backup",
+                              "States": {
+                                "Lambda List EC2 Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListEC2}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "End": true
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_region.$": "$.region",
+                              "search_instance_id.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass EC2 List Backup to Sort Lambda"
+                          },
+                          "Pass EC2 List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "EC2",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda EC2 Sort Backup List"
+                          },
+                          "Lambda EC2 Sort Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          },
+                          "Lambda List PG Assets": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${ListAssets}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "Next": "Split Run By PG Asset"
+                          },
+                          "Split Run By PG Asset": {
+                            "Type": "Map",
+                            "MaxConcurrency": 100,
+                            "ToleratedFailurePercentage": 100,
+                            "ItemProcessor": {
+                              "ProcessorConfig": {
+                                "Mode": "DISTRIBUTED",
+                                "ExecutionType": "STANDARD"
+                              },
+                              "StartAt": "Lambda List PG Latest Backup",
+                              "States": {
+                                "Lambda List PG Latest Backup": {
+                                  "Type": "Task",
+                                  "Resource": "arn:aws:states:::lambda:invoke",
+                                  "OutputPath": "$.Payload",
+                                  "Parameters": {
+                                    "Payload.$": "$",
+                                    "FunctionName": "${ListPG}:$LATEST"
+                                  },
+                                  "Retry": [
+                                    {
+                                      "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                      ],
+                                      "IntervalSeconds": 1,
+                                      "MaxAttempts": 3,
+                                      "BackoffRate": 2,
+                                      "JitterStrategy": "FULL"
+                                    }
+                                  ],
+                                  "End": true
+                                }
+                              }
+                            },
+                            "ItemsPath": "$.asset_ids",
+                            "ItemSelector": {
+                              "clumio_token.$": "$$.Execution.Input.clumio_token",
+                              "base_url.$": "$$.Execution.Input.base_url",
+                              "source_account.$": "$$.Execution.Input.source_account",
+                              "source_asset_types.$": "$$.Execution.Input.source_asset_types",
+                              "source_region.$": "$.region",
+                              "search_pg_name.$": "$$.Map.Item.Value",
+                              "target_specs.$": "$$.Execution.Input.target_specs",
+                              "target": {
+                                "search_direction": "before"
+                              }
+                            },
+                            "Next": "Pass PG List Backup to Sort Lambda"
+                          },
+                          "Pass PG List Backup to Sort Lambda": {
+                            "Type": "Pass",
+                            "Parameters": {
+                              "resource_type": "ProtectionGroup",
+                              "backup_list.$": "$"
+                            },
+                            "Next": "Lambda PG Sort Backup List"
+                          },
+                          "Lambda PG Sort Backup List": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "Payload.$": "$",
+                              "FunctionName": "${SortBackups}:$LATEST"
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2,
+                                "JitterStrategy": "FULL"
+                              }
+                            ],
+                            "End": true
+                          }
+                        }
+                      },
+                      "Next": "Pass Region Backup List",
+                      "ItemsPath": "$.resource_types",
+                      "ItemSelector": {
+                        "resource_type.$": "$$.Map.Item.Value",
+                        "region.$": "$.region"
+                      },
+                      "ResultPath": "$.backup_list"
+                    },
+                    "Pass Region Backup List": {
+                      "Type": "Pass",
+                      "End": true,
+                      "Parameters": {
+                        "region.$": "$.region.region",
+                        "backup_list.$": "$.backup_list"
+                      }
+                    }
+                  }
+                },
+                "ItemsPath": "$.regions",
+                "ItemSelector": {
+                  "region.$": "$$.Map.Item.Value",
+                  "resource_types.$": "$.resource_types"
+                },
+                "Next": "Lambda Format Output"
+              },
+              "Lambda Format Output": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${FormatOutput}:$LATEST",
+                  "Payload": {
+                    "total_backup_lists.$": "$",
+                    "target_specs.$": "$$.Execution.Input.target_specs",
+                    "source_account.$": "$$.Execution.Input.source_account"
+                  }
+                },
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2,
+                    "JitterStrategy": "FULL"
+                  }
+                ],
+                "End": true,
+                "ResultSelector": {
+                  "clumio_token.$": "$$.Execution.Input.clumio_token",
+                  "base_url.$": "$$.Execution.Input.base_url",
+                  "RestoreGroups.$": "$.Payload.RestoreGroup",
+                  "Note.$": "$.Payload.Note",
+                  "DefaultInput.$": "$.Payload.DefaultInput"
+                }
+              }
+            }
+          }
+
+Outputs:
+  Version:
+    Description: Bulk restore + list build version deployed in this stack
+    Value: !Ref CodeVersion
+  BulkRestoreStateMachineArn:
+    Description: ARN of the Bulk Restore Step Functions state machine
+    Value: !Ref BulkRestoreStateMachine
+  BulkRestoreStateMachineName:
+    Description: Name of the Bulk Restore Step Functions state machine
+    Value: !GetAtt BulkRestoreStateMachine.Name
+  BulkListStateMachineArn:
+    Description: ARN of the Bulk List Step Functions state machine
+    Value: !Ref BulkListStateMachine
+  BulkListStateMachineName:
+    Description: Name of the Bulk List Step Functions state machine
+    Value: !GetAtt BulkListStateMachine.Name
+  LogGroupName:
+    Description: CloudWatch Log Group for bulk restore + list Lambda functions
+    Value: !Ref BulkLogGroup
