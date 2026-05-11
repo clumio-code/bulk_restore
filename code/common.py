@@ -11,6 +11,7 @@ import os
 import secrets
 import string
 import time
+import urllib.parse as urllib_parse
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
@@ -25,9 +26,6 @@ from utils import dates
 if TYPE_CHECKING:
     EventsTypeDef = dict[str, Any]
     StatusAndMsgTypeDef = tuple[int, str]
-    from clumioapi.models.list_aws_environments_response import (
-        ListAWSEnvironmentsResponse,
-    )
 
     class ListingCallable(Protocol):
         def __call__(self, filter: str | None, sort: str | None, start: int) -> Any: ...
@@ -55,7 +53,11 @@ class TimeoutException(Error):
 # Define the retry strategy
 retry_strategy = Retry(
     total=8,  # Total number of retries
-    status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
+    # Retry only on transient signals. 500 is excluded because Clumio's restore
+    # endpoints sometimes return 500 for request-shape errors; retrying buries
+    # the underlying error body inside a RetryError. Let 500s propagate so the
+    # restore Lambdas can log the response and return a structured failure.
+    status_forcelist=[429, 502, 503, 504],
     allowed_methods=[
         'HEAD',
         'GET',
@@ -98,41 +100,86 @@ def get_sort_and_ts_filter(
     return sort, ts_filter
 
 
+class PassthroughFilter:
+    """Adapter for the v1.0.x SDK's typed-filter parameter.
+
+    v1.0.x list methods expect a typed filter object exposing a ``.query_str``
+    JSON string. This shim lets callers keep passing legacy MongoDB-style
+    filter dicts (or pre-serialized JSON strings) without rewriting every
+    call site to a typed pydantic filter class.
+    """
+
+    def __init__(self, filter_value: dict | str) -> None:
+        """Wrap a dict or pre-serialized JSON string for SDK use."""
+        if isinstance(filter_value, str):
+            self.query_str = filter_value
+        else:
+            self.query_str = json.dumps(filter_value)
+
+
+def make_filter(filter_value: dict | str | None) -> Any:
+    """Return a PassthroughFilter for a dict/JSON string, or None for empty input.
+
+    Return type is ``Any`` so callers can pass the result to v1.0.x list methods
+    whose ``filter`` parameter expects an endpoint-specific typed filter class;
+    ``PassthroughFilter`` is structurally compatible (exposes ``.query_str``).
+    """
+    if filter_value is None:
+        return None
+    return PassthroughFilter(filter_value)
+
+
+def _next_page_start(response: Any) -> str | None:
+    """Extract the ``start`` page token from a list response's HATEOAS Next link."""
+    links = getattr(response, 'Links', None)
+    next_link = getattr(links, 'Next', None) if links is not None else None
+    href = getattr(next_link, 'Href', None) if next_link is not None else None
+    if not href:
+        return None
+    qs = urllib_parse.parse_qs(urllib_parse.urlparse(href).query)
+    return qs.get('start', [None])[0]
+
+
 def get_total_list(
     function: Callable,
-    api_filter: str,
+    api_filter: dict | str | None = None,
     lookback_days: int | None = None,
     **kwargs: Any,
 ) -> list:
-    """Get the list of all items.
+    """Get all items from a paginated v1.0.x list endpoint.
+
+    Iterates HATEOAS ``Links.Next`` pages until exhausted. The SDK raises
+    ``ClumioException`` on non-2xx responses; callers may catch or let
+    propagate.
 
     Args:
-        function: A list API function call with pagination feature.
-        api_filter: The filter applied to the list API as a parsable JSON document.
+        function: A list API method on the v1.0.x SDK (e.g.
+            ``client.backup_aws_ebs_volumes_v2.list_backup_aws_ebs_volumes``).
+        api_filter: A MongoDB-style filter dict or pre-serialized JSON string.
         lookback_days: Calculate backup status for the last `lookback_days` days.
-        kwargs:
-         - sort: The sorting applied to the list API.
+        kwargs: Extra keyword arguments forwarded to ``function`` (e.g. ``sort``).
     """
-    start = 1
-    total_list = []
+    total_list: list = []
+    start: str | None = None
+    base_params: dict[str, Any] = dict(kwargs)
+    filter_obj = make_filter(api_filter)
+    if filter_obj is not None:
+        base_params['filter'] = filter_obj
+    if lookback_days is not None:
+        base_params['lookback_days'] = lookback_days
+
     while True:
-        params = {'filter': api_filter, 'start': start, **kwargs}
-        if lookback_days is not None:
-            # Only get assets with backups within the lookback_days range.
-            params['lookback_days'] = lookback_days
-        raw_response, parsed_response = function(**params)
-        # Raise error if raw response is not ok.
-        if not raw_response.ok:
-            raise exceptions.clumio_exception.ClumioException(
-                raw_response.reason,
-                raw_response.content,
-            )
-        if not parsed_response.total_count:
+        params = dict(base_params)
+        if start is not None:
+            params['start'] = start
+        response = function(**params)
+        embedded = getattr(response, 'Embedded', None)
+        items = getattr(embedded, 'Items', None) if embedded is not None else None
+        if items:
+            total_list.extend(items)
+        start = _next_page_start(response)
+        if start is None:
             break
-        total_list.extend(parsed_response.embedded.items)
-        if parsed_response.total_pages_count <= start:
-            break
-        start += 1
     return total_list
 
 
@@ -144,7 +191,7 @@ def get_environment_id_or_raise(
     """Get the Clumio environment UUID or raise if not found."""
     status, msg = get_environment_id(client, target_account, target_region)
     if status != STATUS_OK:
-        raise exceptions.clumio_exception.ClumioException(msg, str(status))
+        raise exceptions.clumio_exception.ClumioException(f'{msg} (status {status})')
     return msg
 
 
@@ -164,21 +211,16 @@ def get_environment_id(
         'account_native_id': {'$eq': target_account},
         'aws_region': {'$eq': target_region},
     }
-    retry = 0
-    response: ListAWSEnvironmentsResponse | None = None
-    while retry < MAX_RETRY:
-        _, response = client.aws_environments_v1.list_aws_environments(
-            filter=json.dumps(env_filter),
+    try:
+        response = client.aws_environments_v1.list_aws_environments(
+            filter=make_filter(env_filter),
         )
-        if response:
-            break
-        time.sleep(1)
-        retry += 1
-    if not response:
-        return ERROR_CODE, 'Error when listing the aws environments.'
-    elif not response.current_count:
+    except exceptions.clumio_exception.ClumioException as e:
+        logger.error('Error listing AWS environments: %s', e)
+        return ERROR_CODE, f'Error when listing the aws environments: {e}'
+    if not response.CurrentCount or not response.Embedded or not response.Embedded.Items:
         return ERROR_CODE, 'No authorized environment found.'
-    return 200, response.embedded.items[0].p_id
+    return STATUS_OK, str(response.Embedded.Items[0].Id)
 
 
 def get_bearer_token_if_not_exists(clumio_token: str | None) -> str:
@@ -186,7 +228,7 @@ def get_bearer_token_if_not_exists(clumio_token: str | None) -> str:
     if not clumio_token:
         status, msg = get_bearer_token()
         if status != STATUS_OK:
-            raise exceptions.clumio_exception.ClumioException(msg, str(status))
+            raise exceptions.clumio_exception.ClumioException(f'{msg} (status {status})')
         clumio_token = msg
     return clumio_token
 
@@ -215,26 +257,17 @@ def get_bearer_token() -> StatusAndMsgTypeDef:
 def get_clumio_api_client(
     base_url: str,
     clumio_token: str,
-    raw_response: bool = True,
 ) -> clumioapi_client.ClumioAPIClient:
     """Get the Clumio REST API client."""
     base_url = parse_base_url(base_url)
     config = configuration.Configuration(
         api_token=clumio_token,
         hostname=base_url,
-        raw_response=raw_response,
     )
     client = clumioapi_client.ClumioAPIClient(config)
-    # In SDK v0.x each controller holds its own RESTclient/requests.Session, so
-    # mount the retry adapter on every controller's session that exposes one.
-    for name in dir(client):
-        if name.startswith('_'):
-            continue
-        rest_client = getattr(getattr(client, name, None), 'client', None)
-        session = getattr(rest_client, 'session', None)
-        if session is not None and hasattr(session, 'mount'):
-            session.mount('https://', retry_adapter)
-            session.mount('http://', retry_adapter)
+    # v1.0.x SDK funnels every controller through a single shared RESTclient.
+    session = client.base_controller.client.session
+    session.mount('https://', retry_adapter)
     return client
 
 
@@ -257,15 +290,20 @@ def filter_backup_records_by_tags(
 
 
 def to_dict_or_none(obj: Any) -> dict | None:
-    """Return dict version of an object if it exists, or None otherwise."""
-    return obj.__dict__ if obj else None
+    """Return snake_case dict version of a v1.0.x SDK model, or None."""
+    if not obj:
+        return None
+    dict_method = getattr(obj, 'dict', None)
+    if callable(dict_method):
+        return dict_method()
+    return obj.__dict__
 
 
 def tags_from_dict(tags: list[dict[str, str]]) -> list[aws_tag_common_model.AwsTagCommonModel]:
     """Convert list of tags from dict to AwsTagCommonModel."""
     tag_list = []
     for tag in tags:
-        tag_list.append(aws_tag_common_model.AwsTagCommonModel(key=tag['key'], value=tag['value']))
+        tag_list.append(aws_tag_common_model.AwsTagCommonModel(Key=tag['key'], Value=tag['value']))
     return tag_list
 
 

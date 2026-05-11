@@ -10,7 +10,7 @@ Clumio Bulk Restore is a serverless AWS Lambda + Step Functions application that
 
 ```bash
 make install-dev    # Install all dev dependencies
-make build          # Bundle Lambda functions + deps into build/clumio_bulk_restore.zip
+make build          # Bundle Lambda functions + deps into build/clumio_bulk_restore-<version>.zip (version read from VERSION file)
 make test           # Run unit tests with coverage (Green test runner, generates HTML report)
 make lint           # Lint with Ruff
 make format         # Format with Ruff
@@ -97,10 +97,10 @@ To update tags on an existing stack, run `aws cloudformation update-stack` with 
 - `make build` stamps the version into the artifacts:
   - Writes `version.txt` inside the Lambda zip
   - Names the zip itself `clumio_bulk_restore-${VERSION}.zip` (versioned filename)
-  - Substitutes the `__BULK_RESTORE_VERSION__` placeholder in all three CFTs (in `code/`) and writes the rendered templates to `build/`. Each Lambda's `Code.S3Key` resolves to `<LambdaZipObjectPrefix>-${VERSION}.zip` — so a new release means a new S3 key, which is what forces CloudFormation to re-pull the Lambda code on stack update (CFN does **not** re-pull when only a Lambda's `Description` changes).
+  - Substitutes the `__BULK_RESTORE_VERSION__` placeholder in `code/clumio_bulk_deploy_cft.yaml` and writes the rendered template to `build/clumio_bulk_deploy_cft.yaml`. Each Lambda's `Code.S3Key` resolves to `<LambdaZipObjectPrefix>-${VERSION}.zip` — so a new release means a new S3 key, which is what forces CloudFormation to re-pull the Lambda code on stack update (CFN does **not** re-pull when only a Lambda's `Description` changes).
 - Stack outputs surface the deployed version (`Version`) and each Lambda's description still includes `(v${CodeVersion})` for in-AWS-console auditing.
-- Release flow: bump `VERSION`, run `make build`, upload `build/clumio_bulk_restore-${VERSION}.zip` to the S3 bucket pointed at by `LambdaCodeLocationBucket`, then deploy the rendered CFT from `build/`. Customers do not need to override `CodeVersion` or any other parameter to trigger a code update — the new S3 key handles it.
-- Never edit the CFTs in `code/` to set a version directly; the `__BULK_RESTORE_VERSION__` placeholder must be preserved so the build stamps it.
+- Release flow: bump `VERSION`, run `make build`, upload `build/clumio_bulk_restore-${VERSION}.zip` to the S3 bucket pointed at by `LambdaCodeLocationBucket`, then deploy `build/clumio_bulk_deploy_cft.yaml`. Customers do not need to override `CodeVersion` or any other parameter to trigger a code update — the new S3 key handles it.
+- Never edit `code/clumio_bulk_deploy_cft.yaml` to set a version directly; the `__BULK_RESTORE_VERSION__` placeholder must be preserved so the build stamps it.
 
 > [!IMPORTANT]
 > The CFT parameter for the Lambda zip key was renamed from `LambdaZipObject` (full filename, e.g. `clumio_bulk_restore.zip`) to `LambdaZipObjectPrefix` (prefix only, e.g. `clumio_bulk_restore`). Existing stacks updating to a new template will drop the old parameter; the new default works for the standard release flow. Customers who customized the old `LambdaZipObject` value need to set `LambdaZipObjectPrefix` explicitly on their next stack update.

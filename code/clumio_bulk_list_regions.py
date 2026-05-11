@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -45,41 +44,26 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     }
     try:
         logger.info('List AWS environments...')
-        raw_response, parsed_response = client.aws_environments_v1.list_aws_environments(
-            filter=json.dumps(env_filter),
+        parsed_response = client.aws_environments_v1.list_aws_environments(
+            filter=common.make_filter(env_filter),
             limit=100,
         )
-
-        # Return if response is not ok.
-        if not raw_response.ok:
-            logger.error('List AWS environments failed with message: %s', raw_response.content)
-            return {
-                'status': raw_response.status_code,
-                'msg': raw_response.content,
-                'inputs': events,
-            }
-
-        # Return if no environment was found.
-        if not parsed_response.embedded.items:
-            logger.error('No connected environment found for account %s.', source_account)
-            return {
-                'status': 404,
-                'msg': f'No connected environment found for account {source_account}',
-            }
-
-        # Convert parsed response to list of regions and environment_id.
-        regions = []
-        for env in parsed_response.embedded.items:
-            if source_regions and env.aws_region not in source_regions:
-                continue
-            regions.append(
-                {
-                    'region': env.aws_region,
-                    'environment_id': env.p_id,
-                }
-            )
-        logger.info('Found %s AWS environments.', len(regions))
-        return {'status': 200, 'regions': regions}
     except clumio_exception.ClumioException as e:
         logger.error('List AWS environments failed with exception: %s', e)
-        return {'status': 401, 'msg': f'List region error - {e}'}
+        return {'status': 500, 'msg': f'List region error - {e}'}
+
+    items = parsed_response.Embedded.Items if parsed_response.Embedded else None
+    if not items:
+        logger.error('No connected environment found for account %s.', source_account)
+        return {
+            'status': 404,
+            'msg': f'No connected environment found for account {source_account}',
+        }
+
+    regions = []
+    for env in items:
+        if source_regions and env.AwsRegion not in source_regions:
+            continue
+        regions.append({'region': env.AwsRegion, 'environment_id': env.Id})
+    logger.info('Found %s AWS environments.', len(regions))
+    return {'status': 200, 'regions': regions}

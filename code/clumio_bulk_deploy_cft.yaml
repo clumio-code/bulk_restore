@@ -1624,34 +1624,7 @@ Resources:
                                       "JitterStrategy": "FULL"
                                     }
                                   ],
-                                  "Next": "Check for DynamoDB List Backup Throttling"
-                                },
-                                "Check for DynamoDB List Backup Throttling": {
-                                  "Type": "Choice",
-                                  "Choices": [
-                                    {
-                                      "And": [
-                                        {
-                                          "Variable": "$.status",
-                                          "NumericEquals": 401
-                                        },
-                                        {
-                                          "Variable": "$.msg",
-                                          "StringMatches": "*throttling*"
-                                        }
-                                      ],
-                                      "Next": "DynamoDB List Backoff"
-                                    }
-                                  ],
-                                  "Default": "List DynamoDB Backup Success"
-                                },
-                                "List DynamoDB Backup Success": {
-                                  "Type": "Succeed"
-                                },
-                                "DynamoDB List Backoff": {
-                                  "Type": "Wait",
-                                  "Seconds": 1,
-                                  "Next": "Lambda List DynamoDB Latest Backup"
+                                  "End": true
                                 }
                               }
                             },
@@ -1758,34 +1731,7 @@ Resources:
                                       "JitterStrategy": "FULL"
                                     }
                                   ],
-                                  "Next": "Check for RDS List Backup Throttling"
-                                },
-                                "Check for RDS List Backup Throttling": {
-                                  "Type": "Choice",
-                                  "Choices": [
-                                    {
-                                      "And": [
-                                        {
-                                          "Variable": "$.status",
-                                          "NumericEquals": 401
-                                        },
-                                        {
-                                          "Variable": "$.msg",
-                                          "StringMatches": "*throttling*"
-                                        }
-                                      ],
-                                      "Next": "RDS List Backoff"
-                                    }
-                                  ],
-                                  "Default": "List RDS Backup Success"
-                                },
-                                "List RDS Backup Success": {
-                                  "Type": "Succeed"
-                                },
-                                "RDS List Backoff": {
-                                  "Type": "Wait",
-                                  "Seconds": 1,
-                                  "Next": "Lambda List RDS Latest Backup"
+                                  "End": true
                                 }
                               }
                             },
@@ -1892,34 +1838,7 @@ Resources:
                                       "JitterStrategy": "FULL"
                                     }
                                   ],
-                                  "Next": "Check for EBS List Backup Throttling"
-                                },
-                                "Check for EBS List Backup Throttling": {
-                                  "Type": "Choice",
-                                  "Choices": [
-                                    {
-                                      "And": [
-                                        {
-                                          "Variable": "$.status",
-                                          "NumericEquals": 401
-                                        },
-                                        {
-                                          "Variable": "$.msg",
-                                          "StringMatches": "*throttling*"
-                                        }
-                                      ],
-                                      "Next": "EBS List Backoff"
-                                    }
-                                  ],
-                                  "Default": "List EBS Backup Success"
-                                },
-                                "List EBS Backup Success": {
-                                  "Type": "Succeed"
-                                },
-                                "EBS List Backoff": {
-                                  "Type": "Wait",
-                                  "Seconds": 1,
-                                  "Next": "Lambda List EBS Latest Backup"
+                                  "End": true
                                 }
                               }
                             },
@@ -2031,34 +1950,7 @@ Resources:
                                       "JitterStrategy": "FULL"
                                     }
                                   ],
-                                  "Next": "Check for EC2 List Backup Throttling"
-                                },
-                                "Check for EC2 List Backup Throttling": {
-                                  "Type": "Choice",
-                                  "Choices": [
-                                    {
-                                      "And": [
-                                        {
-                                          "Variable": "$.status",
-                                          "NumericEquals": 401
-                                        },
-                                        {
-                                          "Variable": "$.msg",
-                                          "StringMatches": "*throttling*"
-                                        }
-                                      ],
-                                      "Next": "EC2 List Backoff"
-                                    }
-                                  ],
-                                  "Default": "List EC2 Backup Success"
-                                },
-                                "List EC2 Backup Success": {
-                                  "Type": "Succeed"
-                                },
-                                "EC2 List Backoff": {
-                                  "Type": "Wait",
-                                  "Seconds": 1,
-                                  "Next": "Lambda List EC2 Latest Backup"
+                                  "End": true
                                 }
                               }
                             },
@@ -2165,34 +2057,7 @@ Resources:
                                       "JitterStrategy": "FULL"
                                     }
                                   ],
-                                  "Next": "Check for PG List Backup Throttling"
-                                },
-                                "Check for PG List Backup Throttling": {
-                                  "Type": "Choice",
-                                  "Choices": [
-                                    {
-                                      "And": [
-                                        {
-                                          "Variable": "$.status",
-                                          "NumericEquals": 401
-                                        },
-                                        {
-                                          "Variable": "$.msg",
-                                          "StringMatches": "*throttling*"
-                                        }
-                                      ],
-                                      "Next": "PG List Backoff"
-                                    }
-                                  ],
-                                  "Default": "List PG Backup Success"
-                                },
-                                "List PG Backup Success": {
-                                  "Type": "Succeed"
-                                },
-                                "PG List Backoff": {
-                                  "Type": "Wait",
-                                  "Seconds": 1,
-                                  "Next": "Lambda List PG Latest Backup"
+                                  "End": true
                                 }
                               }
                             },

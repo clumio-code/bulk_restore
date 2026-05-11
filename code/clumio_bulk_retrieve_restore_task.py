@@ -52,13 +52,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
 
     # Initiate the Clumio API client.
-    client = common.get_clumio_api_client(base_url, clumio_token, raw_response=False)
+    client = common.get_clumio_api_client(base_url, clumio_token)
     status = None
     try:
         for _ in common.simple_timer(600, 20):
             try:
                 response = client.tasks_v1.read_task(task_id=task_id)
-                status = response.status
+                status = response.Status
                 logger.info('[%s] Task status %s.', task_id, status)
                 if status == 'completed':
                     break

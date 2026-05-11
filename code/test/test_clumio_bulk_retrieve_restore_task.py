@@ -55,7 +55,7 @@ class TestLambdaHandler(unittest.TestCase):
         """In-progress statuses raise RestoreInProgress so SFN retries the Task Lambda."""
         for status in ['queued', 'in_progress']:
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
-                status=status,
+                Status=status,
             )
             with self.assertRaises(clumio_bulk_retrieve_restore_task.RestoreInProgress):
                 clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
@@ -63,7 +63,7 @@ class TestLambdaHandler(unittest.TestCase):
     def test_read_task_completed(self) -> None:
         """A completed task returns status 200."""
         self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
-            status='completed',
+            Status='completed',
         )
         result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
         self.assertEqual(result['status'], 200)
@@ -73,7 +73,7 @@ class TestLambdaHandler(unittest.TestCase):
         """Failed or aborted tasks return status 403."""
         for status in ['failed', 'aborted']:
             self.api_client().tasks_v1.read_task.return_value = read_task_response.ReadTaskResponse(
-                status=status,
+                Status=status,
             )
             result = clumio_bulk_retrieve_restore_task.lambda_handler(self.events, self.context)
             self.assertEqual(result['status'], 403)
