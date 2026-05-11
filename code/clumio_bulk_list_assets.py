@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -79,7 +78,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         list_filter['backup_status'] = {'$in': backup_status}
     if is_deleted:
         list_filter['is_deleted'] = {'$in': is_deleted}
-    logger.info('Listing assets with filter: %s', json.dumps(list_filter, indent=2))
+    logger.info('Listing assets with filter: %s', list_filter)
 
     # Get the asset listing function based on the resource type.
     if resource_type == 'EBS':
@@ -91,10 +90,15 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     elif resource_type == 'DynamoDB':
         list_function = client.aws_dynamodb_tables_v1.list_aws_dynamodb_tables
     elif resource_type == 'ProtectionGroup':
-        _, org_unit_response = client.organizational_units_v2.list_organizational_units()
-        if org_unit_response:
-            ou_id = org_unit_response.embedded.items[0].p_id
-            list_filter = {'organizational_unit_id': {'$in': [ou_id]}}
+        # /protection-groups spans environments; its filter API does not accept
+        # environment_id. Filtering is driven by the per-PG `name` predicate
+        # added below (one list call per protection_group entry in the input).
+        pg_filter: dict = {}
+        if protection_status:
+            pg_filter['protection_status'] = {'$in': protection_status}
+        if is_deleted:
+            pg_filter['is_deleted'] = {'$in': is_deleted}
+        list_filter = pg_filter
         list_function = client.protection_groups_v1.list_protection_groups
     else:
         return {'status': 401, 'msg': f'Resource type {resource_type} is not supported.'}
@@ -106,18 +110,24 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         tag_ids = []
         for tag_key, tag_value in asset_tags.items():
             # Get the tag from Clumio inventory matching the specified tag value.
-            tag_filter = {'value': {'$contains': tag_value}}
-            _, tags = client.aws_environment_tags_v1.list_aws_environment_tags(
-                env_id, filter=json.dumps(tag_filter), limit=100
-            )
+            try:
+                tags = client.aws_environment_tags_v1.list_aws_environment_tags(
+                    env_id,
+                    filter=common.make_filter({'value': {'$contains': tag_value}}),
+                    limit=100,
+                )
+            except clumio_exception.ClumioException as e:
+                logger.error('List environment tags failed: %s', e)
+                return {'status': 500, 'msg': f'List tags error - {e}'}
             # Get the Clumio tag ID.
             clumio_tag_ids = []
-            if tags.embedded.items:
-                for tag in tags.embedded.items:
+            tag_items = tags.Embedded.Items if tags.Embedded else None
+            if tag_items:
+                for tag in tag_items:
                     # Ensure exact key/value match as filter only allows $contains.
-                    if tag.value == tag_value and tag.key == tag_key:
-                        logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.p_id)
-                        clumio_tag_ids.append(tag.p_id)
+                    if tag.Value == tag_value and tag.Key == tag_key:
+                        logger.info('Found tag {%s:%s} with ID: %s', tag_key, tag_value, tag.Id)
+                        clumio_tag_ids.append(tag.Id)
             # Bail out if the tag was not found.
             if not clumio_tag_ids:
                 # May need to increase the limit in the list_aws_environment_tags request.
@@ -150,12 +160,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
             logger.info('List all %s assets...', resource_type)
             # Valid values for lookback_days is 1-60.
             assets_list = common.get_total_list(
-                function=list_function, api_filter=json.dumps(api_filter), lookback_days=60
+                function=list_function, api_filter=api_filter, lookback_days=60
             )
             total_assets_list += assets_list
         except clumio_exception.ClumioException as e:
             logger.error('List %s assets failed with exception: %s', resource_type, e)
-            return {'status': 401, 'msg': f'List {resource_type} assets error - {e}'}
+            return {'status': 500, 'msg': f'List {resource_type} assets error - {e}'}
 
     # Log the total number assets found.
     logger.info('Found %s %s assets.', len(total_assets_list), resource_type)
@@ -175,7 +185,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         }
     # Return the assets list.
     if resource_type == 'ProtectionGroup':
-        asset_ids = [asset.name for asset in total_assets_list]
+        asset_ids = [asset.Name for asset in total_assets_list]
     else:
-        asset_ids = [asset.p_id for asset in total_assets_list]
+        asset_ids = [asset.Id for asset in total_assets_list]
     return {'status': 200, 'region': region_name, 'asset_ids': asset_ids}

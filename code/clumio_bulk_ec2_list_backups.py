@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -31,39 +30,59 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _tag_to_dict(tag: Any) -> dict:
+    """Convert a v1.0.x AwsTagCommonModel into the legacy {'key','value'} dict shape."""
+    return {'key': tag.Key, 'value': tag.Value}
+
+
 def backup_record_obj_to_dict(backup: EC2Backup) -> dict:
     """Convert backup record object to dictionary."""
     ebs_mappings = []
     kms_key_native_id = ''
-    for ebs_vol in backup.attached_backup_ebs_volumes:
-        ebs_mapping = ebs_vol.__dict__
-        ebs_mapping['id'] = ebs_mapping.pop('p_id')
-        ebs_mapping['type'] = ebs_mapping.pop('p_type')
-        if ebs_mapping['tags']:
-            # Convert tags to a list of dictionaries if they exist.
-            ebs_mapping['tags'] = [aws_tag.__dict__ for aws_tag in ebs_mapping['tags']]
-        else:
-            # If no tags, set to an empty list.
-            ebs_mapping['tags'] = []
+    for ebs_vol in backup.AttachedBackupEbsVolumes or []:
+        ebs_mapping = {
+            'id': ebs_vol.Id,
+            'is_root': ebs_vol.IsRoot,
+            'kms_key_native_id': ebs_vol.KmsKeyNativeId,
+            'name': ebs_vol.Name,
+            'size': ebs_vol.Size,
+            'status': ebs_vol.Status,
+            'tags': [_tag_to_dict(t) for t in ebs_vol.Tags] if ebs_vol.Tags else [],
+            'type': ebs_vol.Type,
+            'utilized_size_in_bytes': ebs_vol.UtilizedSizeInBytes,
+            'volume_native_id': ebs_vol.VolumeNativeId,
+        }
         ebs_mappings.append(ebs_mapping)
-        kms_key_native_id = ebs_vol.kms_key_native_id
-    security_group_native_ids = []
-    for eni in backup.network_interfaces:
-        security_group_native_ids.extend(eni.security_group_native_ids)
+        kms_key_native_id = ebs_vol.KmsKeyNativeId or ''
+    security_group_native_ids: list[str] = []
+    network_interface_list: list[dict] = []
+    for eni in backup.NetworkInterfaces or []:
+        network_interface_list.append(
+            {
+                'device_index': eni.DeviceIndex,
+                'network_interface_native_id': eni.NetworkInterfaceNativeId,
+                'public_ip': eni.PublicIp,
+                'security_group_native_ids': eni.SecurityGroupNativeIds,
+                'subnet_native_id': eni.SubnetNativeId,
+                'virtual_name': eni.VirtualName,
+            }
+        )
+        if eni.SecurityGroupNativeIds:
+            security_group_native_ids.extend(eni.SecurityGroupNativeIds)
     return {
-        'instance_id': backup.instance_id,
+        'instance_id': backup.InstanceId,
         'backup_record': {
-            'source_backup_id': backup.p_id,
-            'source_ami_id': backup.ami.ami_native_id,
+            'source_backup_id': backup.Id,
+            'source_ami_id': backup.Ami.AmiNativeId if backup.Ami else None,
             # TODO: Uncomment when Clumio supports instance profile.
-            # 'source_iam_instance_profile_name': backup.iam_instance_profile,
-            'source_key_pair_name': backup.key_pair_name,
-            'source_network_interface_list': [ni.__dict__ for ni in backup.network_interfaces],
+            # 'source_iam_instance_profile_name': backup.IamInstanceProfile,
+            'source_key_pair_name': backup.KeyPairName,
+            'source_network_interface_list': network_interface_list,
             'source_ebs_storage_list': ebs_mappings,
-            'source_instance_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
-            'source_vpc_id': backup.vpc_native_id,
-            'source_az': backup.aws_az,
-            'source_expire_time': backup.expiration_timestamp,
+            'source_instance_tags': [_tag_to_dict(t) for t in backup.Tags] if backup.Tags else None,
+            'source_vpc_id': backup.VpcNativeId,
+            'source_az': backup.AwsAz,
+            'source_expire_time': backup.ExpirationTimestamp,
             'source_kms': kms_key_native_id,
             'source_security_group_native_ids': security_group_native_ids,
         },
@@ -114,12 +133,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List EC2 backups with filter: %s', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_ec2_instances_v1.list_backup_aws_ec2_instances,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
         logger.error('List EC2 backups failed with exception: %s', e)
-        return {'status': 401, 'msg': f'List backup error - {e}'}
+        return {'status': 500, 'msg': f'List backup error - {e}'}
 
     # Log number of records found before filtering.
     logger.info('Found %s backup records before applying filters.', len(raw_backup_records))
@@ -128,7 +147,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Filter records by account/region...')
     backup_records = []
     for backup in raw_backup_records:
-        if backup.account_native_id == source_account and backup.aws_region == source_region:
+        if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = backup_record_obj_to_dict(backup)
             backup_records.append(backup_record)
 

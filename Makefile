@@ -18,6 +18,10 @@
 SHELL=/bin/bash
 
 test_reports := build/test_reports/py
+VERSION := $(shell cat VERSION)
+# SAM-provided Amazon Linux 2023 image with Python 3.12 + pip. Used to install
+# Lambda deps with the right linux/x86_64 wheels (e.g. pydantic-core).
+LAMBDA_BUILD_IMAGE := public.ecr.aws/sam/build-python3.12:latest-x86_64
 
 .PHONY: *
 
@@ -26,15 +30,24 @@ clean:
 	rm -rf build .mypy_cache .coverage *.egg-info dist code/.coverage
 
 build:
-	rm -rf build/lambda build/clumio_bulk_restore.zip build/clumio_bulk_restore_deploy_cft.yaml
+	rm -rf build/lambda build/clumio_bulk_restore*.zip build/*_cft.yaml
 	mkdir -p build/lambda
 	mkdir -p build/lambda/utils
 	cp code/*.py build/lambda/
 	cp -r code/utils/* build/lambda/utils
-	pip install -r requirements.txt -t build/lambda/
-	cd build/lambda && zip -r ../clumio_bulk_restore.zip .
-	cp code/clumio_bulk_restore_deploy_cft.yaml build/
-	cp code/clumio_bulk_list_deploy_cft.yaml build/
+	cp VERSION build/lambda/version.txt
+	# Install Python deps inside a Linux x86_64 container so native binaries
+	# (e.g. pydantic-core's Rust wheel) match the Lambda runtime. Requires Docker.
+	docker run --rm \
+		--user $$(id -u):$$(id -g) \
+		-v "$(CURDIR):/work" \
+		-w /work \
+		$(LAMBDA_BUILD_IMAGE) \
+		pip install --no-cache-dir --target build/lambda -r requirements.txt
+	cd build/lambda && zip -r ../clumio_bulk_restore-$(VERSION).zip .
+	sed 's/__BULK_RESTORE_VERSION__/$(VERSION)/g' \
+		code/clumio_bulk_deploy_cft.yaml > build/clumio_bulk_deploy_cft.yaml
+	@echo "Built bulk_restore version $(VERSION) -> build/clumio_bulk_restore-$(VERSION).zip"
 
 # Install the dependencies locally.
 install:

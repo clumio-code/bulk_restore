@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -33,29 +32,36 @@ logger = logging.getLogger(__name__)
 
 def backup_record_obj_to_dict(backup: RdsDatabaseBackup) -> dict:
     """Convert backup record object to dictionary."""
-    instances_dict = []
+    instances_dict: list[dict] = []
     instance_class = ''
     publicly_available = True
-    for instance in backup.instances:
-        instance_dict = instance.__dict__
-        instance_class = instance_dict.pop('p_class')
-        instance_dict['class'] = instance_class
-        publicly_available = publicly_available and instance_dict['is_publicly_accessible']
-        instances_dict.append(instance_dict)
+    for instance in backup.Instances or []:
+        instance_class = instance.Class or ''
+        is_publicly_accessible = bool(instance.IsPubliclyAccessible)
+        instances_dict.append(
+            {
+                'class': instance_class,
+                'is_publicly_accessible': is_publicly_accessible,
+                'name': instance.Name,
+            }
+        )
+        publicly_available = publicly_available and is_publicly_accessible
     return {
-        'resource_id': backup.database_native_id,
+        'resource_id': backup.DatabaseNativeId,
         'backup_record': {
-            'source_backup_id': backup.p_id,
-            'source_resource_id': backup.database_native_id,
-            'source_resource_tags': [tag.__dict__ for tag in backup.tags] if backup.tags else None,
-            'source_encrypted_flag': backup.kms_key_native_id == '',
+            'source_backup_id': backup.Id,
+            'source_resource_id': backup.DatabaseNativeId,
+            'source_resource_tags': [{'key': tag.Key, 'value': tag.Value} for tag in backup.Tags]
+            if backup.Tags
+            else None,
+            'source_encrypted_flag': backup.KmsKeyNativeId == '',
             'source_instances': instances_dict,
             'source_instance_class': instance_class,
             'source_is_publicly_accessible': publicly_available,
-            'source_subnet_group_name': backup.subnet_group_name,
-            'source_kms': backup.kms_key_native_id,
-            'source_expire_time': backup.expiration_timestamp,
-            'source_security_group_native_ids': backup.security_group_native_ids,
+            'source_subnet_group_name': backup.SubnetGroupName,
+            'source_kms': backup.KmsKeyNativeId,
+            'source_expire_time': backup.ExpirationTimestamp,
+            'source_security_group_native_ids': backup.SecurityGroupNativeIds,
         },
     }
 
@@ -102,12 +108,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         logger.info('List RDS backups with filter: %s', api_filter)
         raw_backup_records = common.get_total_list(
             function=client.backup_aws_rds_resources_v1.list_backup_aws_rds_resources,
-            api_filter=json.dumps(api_filter),
+            api_filter=api_filter,
             sort=sort,
         )
     except clumio_exception.ClumioException as e:
         logger.error('List RDS backups failed with exception: %s', e)
-        return {'status': 401, 'msg': f'List backup error - {e}'}
+        return {'status': 500, 'msg': f'List backup error - {e}'}
 
     # Log total number of records found before filtering.
     logger.info('Found %s RDS backup records before applying filters.', len(raw_backup_records))
@@ -116,13 +122,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     logger.info('Filter records by type and account/region...')
     backup_records = []
     for backup in raw_backup_records:
-        if backup.p_type == 'aws_rds_resource_granular_backup':
+        if backup.Type == 'aws_rds_resource_granular_backup':
             # TODO: Restore from the Archive backup type is not supported?
             continue
-        if backup.account_native_id == source_account and backup.aws_region == source_region:
+        if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = backup_record_obj_to_dict(backup)
             backup_records.append(backup_record)
-            logger.info('Found backup: %s (%s)', backup.p_id, backup.database_native_id)
+            logger.info('Found backup: %s (%s)', backup.Id, backup.DatabaseNativeId)
 
     # Filter the result based on the tags.
     logger.info('Filter records by tags...')

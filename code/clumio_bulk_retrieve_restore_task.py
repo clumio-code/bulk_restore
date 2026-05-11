@@ -28,6 +28,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class RestoreInProgress(Exception):
+    """Raised when a Clumio restore task is still running.
+
+    The state machine retries the Task Lambda invocation on this error;
+    Step Functions matches the error by class name (`RestoreInProgress`)
+    in the Retry/Catch blocks.
+    """
+
+
 def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, Any]:
     """Handle the lambda function to retrieve the EC2 restore task."""
     clumio_token: str | None = events.get('clumio_token', None)
@@ -43,13 +52,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     clumio_token = common.get_bearer_token_if_not_exists(clumio_token)
 
     # Initiate the Clumio API client.
-    client = common.get_clumio_api_client(base_url, clumio_token, raw_response=False)
+    client = common.get_clumio_api_client(base_url, clumio_token)
     status = None
     try:
         for _ in common.simple_timer(600, 20):
             try:
                 response = client.tasks_v1.read_task(task_id=task_id)
-                status = response.status
+                status = response.Status
                 logger.info('[%s] Task status %s.', task_id, status)
                 if status == 'completed':
                     break
@@ -64,6 +73,6 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 }
     except common.TimeoutException:
         logger.warning('[%s] Task timed out after polling. Last known status: %s.', task_id, status)
-        return {'status': 205, 'msg': f'task not done - {status}', 'inputs': inputs}
+        raise RestoreInProgress(f'task not done - {status}') from None
 
     return {'status': 200, 'msg': 'task completed', 'inputs': inputs}

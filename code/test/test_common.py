@@ -20,14 +20,16 @@ import unittest
 from unittest import mock
 
 import common
-import requests
 from clumioapi.exceptions import clumio_exception
 from clumioapi.models import (
     aws_environment,
     aws_environment_list_embedded,
+    aws_environment_list_links,
+    hateoas_next_link,
     list_aws_environments_response,
     list_tasks_response,
     task_list_embedded,
+    task_list_links,
     task_with_e_tag,
 )
 
@@ -39,70 +41,82 @@ class TestUtilFunctions(unittest.TestCase):
         api_client_patch = mock.patch('clumioapi.clumioapi_client.ClumioAPIClient')
         self.api_client = api_client_patch.start()
 
-    def test_get_total_list(self) -> None:
-        """Verify get_total_list function."""
-        # Ok response.
-        task_ids = ['1', '2']
-        ok_response = requests.Response()
-        ok_response.status_code = 200
-        return_vals = [
-            (
-                ok_response,
-                list_tasks_response.ListTasksResponse(
-                    embedded=task_list_embedded.TaskListEmbedded(
-                        items=[task_with_e_tag.TaskWithETag(p_id=task_id)]
-                    ),
-                    total_count=2,
-                    total_pages_count=2,
-                ),
-            )
-            for task_id in task_ids
-        ]
-        self.api_client().tasks_v1.list_task.side_effect = return_vals
+    def test_get_total_list_paginates_via_links_next(self) -> None:
+        """get_total_list follows Links.Next.Href across pages and aggregates Items."""
+        page1 = list_tasks_response.ListTasksResponse(
+            Embedded=task_list_embedded.TaskListEmbedded(
+                Items=[task_with_e_tag.TaskWithETag(Id='1')]
+            ),
+            Links=task_list_links.TaskListLinks(
+                Next=hateoas_next_link.HateoasNextLink(Href='/tasks?start=page2'),
+            ),
+        )
+        page2 = list_tasks_response.ListTasksResponse(
+            Embedded=task_list_embedded.TaskListEmbedded(
+                Items=[task_with_e_tag.TaskWithETag(Id='2')]
+            ),
+            Links=task_list_links.TaskListLinks(),  # no Next → terminate
+        )
+        self.api_client().tasks_v1.list_task.side_effect = [page1, page2]
         tasks_list = common.get_total_list(
             self.api_client().tasks_v1.list_task,
-            api_filter='api_filter',
+            api_filter={'k': {'$eq': 'v'}},
             sort='sort',
         )
-        retrieved_task_ids = [task.p_id for task in tasks_list]
-        self.assertEqual(task_ids, retrieved_task_ids)
+        self.assertEqual([t.Id for t in tasks_list], ['1', '2'])
 
-        # Non-ok response.
-        non_ok_response = requests.Response()
-        non_ok_response.status_code = 401
-        self.api_client().tasks_v1.list_task.side_effect = [(non_ok_response, None)]
-        with self.assertRaises(clumio_exception.ClumioException):
-            _ = common.get_total_list(
-                self.api_client().tasks_v1.list_task,
-                api_filter='api_filter',
-                sort='sort',
-            )
-
-    def test_get_environment_id(self) -> None:
-        """Verify get_environment_id function."""
-        # Empty response.
-        target_account = 'target_account'
-        target_region = 'target_region'
-        self.api_client().aws_environments_v1.list_aws_environments.return_value = (
-            list_aws_environments_response.ListAWSEnvironmentsResponse(current_count=0)
+    def test_get_total_list_propagates_clumio_exception(self) -> None:
+        """If the list method raises ClumioException, get_total_list lets it propagate."""
+        self.api_client().tasks_v1.list_task.side_effect = clumio_exception.ClumioException(
+            'list failed'
         )
-        status_code, _ = common.get_environment_id(self.api_client(), target_account, target_region)
-        self.assertEqual(status_code, 402)
+        with self.assertRaises(clumio_exception.ClumioException):
+            common.get_total_list(self.api_client().tasks_v1.list_task, api_filter='{}')
 
-        # Non-empty response.
+    def test_get_environment_id_empty(self) -> None:
+        """Empty environments list returns ERROR_CODE."""
+        self.api_client().aws_environments_v1.list_aws_environments.return_value = (
+            list_aws_environments_response.ListAWSEnvironmentsResponse(CurrentCount=0)
+        )
+        status_code, _ = common.get_environment_id(self.api_client(), 'acct', 'us-west-2')
+        self.assertEqual(status_code, common.ERROR_CODE)
+
+    def test_get_environment_id_found(self) -> None:
+        """A non-empty result returns 200 and the first environment's Id."""
         self.api_client().aws_environments_v1.list_aws_environments.return_value = (
             list_aws_environments_response.ListAWSEnvironmentsResponse(
-                embedded=aws_environment_list_embedded.AWSEnvironmentListEmbedded(
-                    items=[aws_environment.AWSEnvironment(p_id='env_id')]
+                Embedded=aws_environment_list_embedded.AWSEnvironmentListEmbedded(
+                    Items=[aws_environment.AWSEnvironment(Id='env_id')]
                 ),
-                current_count=1,
+                CurrentCount=1,
             )
         )
-        status_code, env_id = common.get_environment_id(
-            self.api_client(), target_account, target_region
-        )
-        self.assertEqual(status_code, 200)
+        status_code, env_id = common.get_environment_id(self.api_client(), 'acct', 'us-west-2')
+        self.assertEqual(status_code, common.STATUS_OK)
         self.assertEqual(env_id, 'env_id')
+
+    def test_get_environment_id_clumio_exception(self) -> None:
+        """A ClumioException is captured and returned as ERROR_CODE + message."""
+        self.api_client().aws_environments_v1.list_aws_environments.side_effect = (
+            clumio_exception.ClumioException('list failed')
+        )
+        status_code, msg = common.get_environment_id(self.api_client(), 'acct', 'us-west-2')
+        self.assertEqual(status_code, common.ERROR_CODE)
+        self.assertIn('Error', msg)
+
+    def test_passthrough_filter_dict(self) -> None:
+        """PassthroughFilter serializes a dict to JSON in query_str."""
+        f = common.PassthroughFilter({'name': {'$eq': 'x'}})
+        self.assertEqual(f.query_str, '{"name": {"$eq": "x"}}')
+
+    def test_passthrough_filter_str(self) -> None:
+        """PassthroughFilter passes a pre-serialized JSON string through unchanged."""
+        f = common.PassthroughFilter('{"k": 1}')
+        self.assertEqual(f.query_str, '{"k": 1}')
+
+    def test_make_filter_none(self) -> None:
+        """make_filter returns None for None input (no filter applied)."""
+        self.assertIsNone(common.make_filter(None))
 
     def test_filter_backup_records_by_tags(self) -> None:
         """Verify the filter_backup_records_by_tags function."""

@@ -78,8 +78,10 @@ Secret which can optionally be used to store your Clumio API token.
 > in examples folder.
 
 > [!NOTE]
-> The `clumio_bulk_restore_deploy_cft.yaml` file is the CloudFormation (CFT)
-> deployment template. Deploy this CFT template to setup the solution.
+> CloudFormation deployment template: `code/clumio_bulk_deploy_cft.yaml`. It
+> deploys the full solution — both the bulk restore and bulk list/discovery
+> state machines, plus a shared set of Lambdas. Deploy this template to set
+> up everything.
 
 ## Build
 
@@ -89,12 +91,54 @@ To build you will need a Unix type shell (`bash`, `zsh`, ...), Python 3.12, `mak
 make build
 ```
 
-It will fetch the dependencies and generate the zip file `clumio_bulk_restore.zip`
-under the `build` directory alongside the `clumio_bulk_restore_deploy_cft.yaml`
-CloudFormation template.
+It will fetch the dependencies and generate a versioned zip
+(`clumio_bulk_restore-<version>.zip`, where `<version>` is read from the
+`VERSION` file at the repo root) under the `build` directory, alongside the
+rendered CloudFormation template (`clumio_bulk_deploy_cft.yaml`).
 
 The zip file must be uploaded to a S3 bucket where it can be accessed by the
-CloudFormation Template when you deploy the solution.
+CloudFormation Template when you deploy the solution. Upload it under its
+versioned filename — the rendered CFT references that exact key.
+
+### Build version
+
+The build version is read from the `VERSION` file at the repo root and stamped
+by `make build` into:
+- `version.txt` packaged inside the Lambda zip
+- The zip filename itself: `clumio_bulk_restore-<version>.zip`
+- Each Lambda's `Code.S3Key` in the rendered CFT (so each release loads from a
+  unique S3 key and CloudFormation re-pulls the Lambda code on stack update)
+- The `CodeVersion` parameter default and the `Version` stack output, both
+  visible in the CloudFormation console after deploy
+
+To cut a new release, bump `VERSION` and re-run `make build`. Upload the new
+versioned zip to S3 and run a stack update against the new CFT — Lambda code
+updates happen automatically; no parameter overrides required.
+
+> [!IMPORTANT]
+> The CFT parameter for the Lambda zip key was renamed from `LambdaZipObject`
+> (full filename) to `LambdaZipObjectPrefix` (prefix only, default
+> `clumio_bulk_restore`). On first stack update against the new template, the
+> old parameter is dropped and the new default is used. Customers who had set
+> a custom `LambdaZipObject` value should pass a matching `LambdaZipObjectPrefix`
+> on the upgrade.
+
+### Tuning for scale
+
+Two CFT parameters control how the state machine waits on long-running Clumio
+restores. Defaults are sized for restoring 64TB-class volumes:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `PollingIntervalSeconds` | `60` | Seconds between Clumio task-status polls |
+| `PollingMaxAttempts` | `200` | Maximum polling attempts per restore (~48h wall-time at the default interval; each Task Lambda invocation also internally polls Clumio for ~10 min) |
+
+Override them on `aws cloudformation deploy --parameter-overrides
+PollingMaxAttempts=400 PollingIntervalSeconds=120` for unusually slow or
+unusually fast workloads. The inner per-record / per-asset Maps are
+**Distributed Maps** with `MaxConcurrency: 100` — concurrent restore /
+list-asset fanout is bounded by that ceiling and by your account's Lambda
+concurrency quota.
 
 ## Running the Automation
 > [!TIP]
@@ -103,7 +147,7 @@ CloudFormation Template when you deploy the solution.
 > - [ ] Identify an IAM Role that has the ability to run both the lambda functions and the state machine.
 > - [ ] Add an AWS secret which has the clumio api token to access clumio service.
 > - [ ] Copy ZIP file from the git repository to the S3 bucket.
-> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role, AWS secret ARN as parameters to run the CFT YAML file.
+> - [ ] Run the CFT YAML file.  You will need to enter the S3 bucket and IAM role, AWS secret ARN as parameters to run the CFT YAML file. To tag the deployed AWS resources (Lambdas, state machines, LogGroup), pass `--tags Key=...,Value=...` on `aws cloudformation create-stack`/`deploy` (or use the Tags section in the AWS Console wizard) — CloudFormation propagates stack-level tags to all supported resources automatically.
 > - [ ] Create an input JSON file for the state machine based upon the example JSON and the descriptions below.
 > - [ ] Execute the State machine and pass it your input JSON.
 > - [ ] If the input file has multiple restore sets, the restore automation will start multiple discovery threads.  One for each restore set.
