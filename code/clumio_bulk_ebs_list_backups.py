@@ -40,6 +40,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_volume_id: str | None = events.get('search_volume_id', None)
     target_specs: dict = events.get('target_specs', {})
     target: dict = events.get('target', {})
+    # For the restore state machine search_volume_id is nested under target.
+    if not search_volume_id:
+        search_volume_id = target.get('search_volume_id', None)
     search_direction: str | None = target.get('search_direction', None)
     start_search_day_offset_input: int = target.get('start_search_day_offset', 1)
     end_search_day_offset_input: int = target.get('end_search_day_offset', 0)
@@ -65,8 +68,11 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     sort, api_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    if search_volume_id:
-        api_filter['volume_id'] = {'$eq': search_volume_id}
+    # NOTE: search_volume_id arrives as either the Clumio internal UUID (when
+    # invoked from the list state machine — sourced from asset.Id) or the AWS
+    # volume_native_id (vol-..., when invoked from the restore state machine).
+    # The Clumio API's `volume_id` filter only accepts the former; list without
+    # the volume filter and match in-memory below against either identifier.
     try:
         logger.info('List EBS backups...')
         raw_backup_records = common.get_total_list(
@@ -81,10 +87,16 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Log number of records found before filtering.
     logger.info('Found %s backup records before applying filters.', len(raw_backup_records))
 
-    # Filter the result based on the source_account and source region.
+    # Filter the result based on the source_account, source region, and (if
+    # provided) the specific EBS volume_native_id.
     logger.info('Filter records by account/region...')
     backup_records = []
     for backup in raw_backup_records:
+        if search_volume_id and search_volume_id not in (
+            backup.VolumeId,
+            backup.VolumeNativeId,
+        ):
+            continue
         if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = {
                 'volume_id': backup.VolumeNativeId,
