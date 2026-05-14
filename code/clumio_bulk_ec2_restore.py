@@ -135,6 +135,13 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
                 RestoreFromBackup=target_eni_cfg_from_backup,
             )
         )
+    # Key pairs are scoped to an (account, region). Only fall back to the
+    # backup's source key pair when restoring into the same account+region,
+    # since it wouldn't exist in a different target. Otherwise honor the
+    # user-specified value (which may be None).
+    key_pair_name = target_key_pair_name
+    if not key_pair_name and source_target_account_region_same:
+        key_pair_name = backup_record.get('source_key_pair_name')
     instance_restore_target = ec2_instance_restore_target.EC2InstanceRestoreTarget(
         AmiNativeId=target_ami_native_id,
         AwsAz=target_az,
@@ -142,7 +149,7 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
         EnvironmentId=target_env_id,
         IamInstanceProfileName=target_iam_instance_profile_name or None,
         Tags=common.tags_from_dict(target_instance_tags) if target_instance_tags else None,
-        KeyPairName=target_key_pair_name or backup_record['source_key_pair_name'],
+        KeyPairName=key_pair_name,
         NetworkInterfaces=network_interfaces,
         SubnetNativeId=subnet_native_id,
         ShouldPowerOn=should_power_on,
