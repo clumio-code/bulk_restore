@@ -77,6 +77,9 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     search_resource_id: str | None = events.get('search_resource_id', None)
     target_specs: dict = events.get('target_specs', {})
     target = events.get('target', {})
+    # For the restore state machine search_resource_id is nested under target.
+    if not search_resource_id:
+        search_resource_id = target.get('search_resource_id', None)
     search_direction = target.get('search_direction', None)
     start_search_day_offset_input = target.get('start_search_day_offset', 0)
     end_search_day_offset_input = target.get('end_search_day_offset', 0)
@@ -102,8 +105,12 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     sort, api_filter = common.get_sort_and_ts_filter(
         search_direction, start_search_day_offset, end_search_day_offset
     )
-    if search_resource_id:
-        api_filter['resource_id'] = {'$eq': search_resource_id}
+    # NOTE: search_resource_id arrives as either the Clumio internal UUID (when
+    # invoked from the list state machine — sourced from asset.Id) or the AWS
+    # database_native_id (when invoked from the restore state machine — sourced
+    # from format_output). The Clumio API's `resource_id` filter only accepts
+    # the former; rather than branching, list without the resource filter and
+    # match in-memory below against either identifier.
     try:
         logger.info('List RDS backups with filter: %s', api_filter)
         raw_backup_records = common.get_total_list(
@@ -118,12 +125,18 @@ def lambda_handler(events: EventsTypeDef, context: LambdaContext) -> dict[str, A
     # Log total number of records found before filtering.
     logger.info('Found %s RDS backup records before applying filters.', len(raw_backup_records))
 
-    # Filter the result based on the source_account and source region.
+    # Filter the result based on the source_account, source region, and (if
+    # provided) the specific RDS database_native_id.
     logger.info('Filter records by type and account/region...')
     backup_records = []
     for backup in raw_backup_records:
         if backup.Type == 'aws_rds_resource_granular_backup':
             # TODO: Restore from the Archive backup type is not supported?
+            continue
+        if search_resource_id and search_resource_id not in (
+            backup.ResourceId,
+            backup.DatabaseNativeId,
+        ):
             continue
         if backup.AccountNativeId == source_account and backup.AwsRegion == source_region:
             backup_record = backup_record_obj_to_dict(backup)
