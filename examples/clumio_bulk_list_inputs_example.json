@@ -100,7 +100,19 @@
       "append_tags": {
         "key1": "val1",
         "key2": "val2"
-      }
+      },
+      "target_billing_mode": "OPTIONAL: PROVISIONED | PAY_PER_REQUEST (defaults to source backup's billing mode)",
+      "target_table_class": "OPTIONAL: STANDARD | STANDARD_INFREQUENT_ACCESS",
+      "target_global_table_version": "OPTIONAL: 2019.11.21 | 2017.11.29",
+      "target_provisioned_throughput": "OPTIONAL: {\"read_capacity_units\": 5, \"write_capacity_units\": 5}",
+      "target_sse_specification": "OPTIONAL: {\"kms_key_type\": \"AWS_OWNED|AWS_MANAGED|CUSTOMER_MANAGED\", \"kms_master_key_id\": \"<arn>\"}",
+      "target_stream_specification": "OPTIONAL: {\"enabled\": true, \"view_type\": \"NEW_AND_OLD_IMAGES\"}",
+      "target_pitr_status": "OPTIONAL: true | false",
+      "target_contributor_insights_status": "OPTIONAL: true | false",
+      "target_deletion_protection_enabled": "OPTIONAL: true | false",
+      "target_restore_wcu": "OPTIONAL: integer write-capacity units used during the restore itself",
+      "target_global_secondary_indexes": "OPTIONAL: list of GSIs to replace the source set, e.g. [{\"index_name\": \"...\", \"key_schema\": [{\"attribute_name\": \"...\", \"key_type\": \"HASH|RANGE\"}], \"projection\": {\"projection_type\": \"ALL|KEYS_ONLY|INCLUDE\", \"non_key_attributes\": []}, \"provisioned_throughput\": {\"read_capacity_units\": 5, \"write_capacity_units\": 5}}]",
+      "target_local_secondary_indexes": "OPTIONAL: list of LSIs to replace the source set, same shape as target_global_secondary_indexes but without provisioned_throughput"
     },
     "RDS": {
       "target_region": "OPTIONAL",

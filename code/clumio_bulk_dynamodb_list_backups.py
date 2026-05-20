@@ -71,6 +71,10 @@ def backup_record_obj_to_dict(backup: DynamoDBTableBackupWithETag) -> dict:
             'source_global_secondary_indexes': gsi_list or None,
             'source_local_secondary_indexes': lsi_list or None,
             'source_replicas': None,
+            'source_stream_specification': common.to_dict_or_none(backup.StreamSpecification),
+            'source_pitr_status': backup.PitrStatus,
+            'source_contributor_insights_status': backup.ContributorInsightsStatus,
+            'source_deletion_protection_enabled': backup.DeletionProtectionEnabled,
         },
     }
 
