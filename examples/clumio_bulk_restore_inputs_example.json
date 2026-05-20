@@ -73,7 +73,56 @@
       "target_account": "222333444555",
       "target_region": "us-east-1",
       "change_set_name": "br5",
-      "target_kms_key_native_id": "18faa619-614e-11e9-bd69-f1ba63e776c4"
+      "target_kms_key_native_id": "18faa619-614e-11e9-bd69-f1ba63e776c4",
+      "_dynamodb_overrides_comment": "Optional per-field overrides. Each defaults to the source backup's value if omitted.",
+      "target_billing_mode": "PAY_PER_REQUEST",
+      "target_table_class": "STANDARD",
+      "target_global_table_version": "2019.11.21",
+      "target_provisioned_throughput": {
+        "read_capacity_units": 5,
+        "write_capacity_units": 5
+      },
+      "target_sse_specification": {
+        "kms_key_type": "CUSTOMER_MANAGED",
+        "kms_master_key_id": "arn:aws:kms:us-east-1:222333444555:key/<uuid>"
+      },
+      "target_stream_specification": {
+        "enabled": true,
+        "view_type": "NEW_AND_OLD_IMAGES"
+      },
+      "target_pitr_status": true,
+      "target_contributor_insights_status": false,
+      "target_deletion_protection_enabled": true,
+      "target_restore_wcu": 1000,
+      "target_global_secondary_indexes": [
+        {
+          "index_name": "ByCustomerStatus",
+          "key_schema": [
+            {"attribute_name": "customer_id", "key_type": "HASH"},
+            {"attribute_name": "status", "key_type": "RANGE"}
+          ],
+          "projection": {
+            "projection_type": "INCLUDE",
+            "non_key_attributes": ["last_updated"]
+          },
+          "provisioned_throughput": {
+            "read_capacity_units": 5,
+            "write_capacity_units": 5
+          }
+        }
+      ],
+      "target_local_secondary_indexes": [
+        {
+          "index_name": "ByCreatedAt",
+          "key_schema": [
+            {"attribute_name": "customer_id", "key_type": "HASH"},
+            {"attribute_name": "created_at", "key_type": "RANGE"}
+          ],
+          "projection": {
+            "projection_type": "ALL"
+          }
+        }
+      ]
     },
     {
       "ResourceType": "ProtectionGroup",

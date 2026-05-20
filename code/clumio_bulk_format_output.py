@@ -137,6 +137,7 @@ def format_record_per_resource_type(
                 'source_ddn_tags': updated_tags,
             }
         )
+        output_record.update(get_target_specs_dynamodb(resource_target_specs))
     elif resource_type == 'RDS':
         updated_tags = backup_record.get('source_resource_tags', [])
         append_tags = resource_target_specs.get('append_tags', {})
@@ -212,6 +213,34 @@ def get_target_specs_ec2(
         'target_security_group_native_ids': sg_ids,
         'should_power_on': should_power_on,
     }
+
+
+def get_target_specs_dynamodb(specs: dict[str, Any]) -> dict:
+    """Forward DynamoDB per-field overrides from target_specs into the RestoreGroup.
+
+    All fields are optional; only keys explicitly set in the user spec are
+    forwarded so the restore Lambda's "override-or-source" precedence sees
+    `None` for unset fields and falls back to the backup record.
+    """
+    forwarded: dict[str, Any] = {}
+    override_keys = (
+        'target_billing_mode',
+        'target_table_class',
+        'target_global_table_version',
+        'target_provisioned_throughput',
+        'target_sse_specification',
+        'target_stream_specification',
+        'target_pitr_status',
+        'target_contributor_insights_status',
+        'target_deletion_protection_enabled',
+        'target_restore_wcu',
+        'target_global_secondary_indexes',
+        'target_local_secondary_indexes',
+    )
+    for key in override_keys:
+        if key in specs:
+            forwarded[key] = specs[key]
+    return forwarded
 
 
 def get_target_specs_rds(
