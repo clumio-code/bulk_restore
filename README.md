@@ -13,7 +13,7 @@
 > limitations under the License.
 
 ## What is a Bulk Restore
-Bulk restores are used to restore multiple resources from different originating
+Bulk restores utilize the [Clumio REST API](https://api.commvault.com/docs/latest/api/cv/ClumioAPIs/clumio-rest-api/) and are used to restore multiple resources from different originating
 locations (AWS account and region pairing) and/or times to one or more target
 locations.
 
@@ -43,7 +43,7 @@ initiate all restores at the same time.
 
 Limits on the number of concurrent restores and the performance of those restores
 are dependent upon the resource types being restored.
-https://help.clumio.com/docs/clumio-service-limits
+https://documentation.commvault.com/clumio/clumio_service_limits.html
 
 This solution can be deployed anywhere in AWS and does not need to have access to
 either the original AWS source location or the target locations. Outside of the
@@ -164,7 +164,7 @@ concurrency quota.
 
 | Base Input Parameter             | Description                                                                                                 |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------   |
-| clumio_token                     | Clumio API bearer token https://help.clumio.com/docs/api-tokens                                             |
+| clumio_token                     | Clumio API bearer token https://documentation.commvault.com/clumio/api_tokens.html#manage-tokens            |
 | debug                            | Set to a non-zero value to debug issues                                                                     |
 
 
